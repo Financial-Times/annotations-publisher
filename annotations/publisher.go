@@ -8,6 +8,7 @@ import (
 type Publisher interface {
 	GTG() error
 	Endpoint() string
+	Publish(uuid string, body map[string]interface{}) error
 }
 
 type uppPublisher struct {
@@ -18,6 +19,10 @@ type uppPublisher struct {
 
 func NewPublisher(originSystemID string, publishEndpoint string, gtgEndpoint string) Publisher {
 	return &uppPublisher{originSystemID, publishEndpoint, gtgEndpoint}
+}
+
+func (a *uppPublisher) Publish(uuid string, body map[string]interface{}) error {
+	return nil
 }
 
 func (a *uppPublisher) GTG() error {

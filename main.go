@@ -91,7 +91,7 @@ func main() {
 
 func serveEndpoints(port string, apiYml *string, publisher annotations.Publisher, healthService *health.HealthService) {
 	r := vestigo.NewRouter()
-	r.Get("/drafts/content/:uuid/annotations/publish", resources.Publish(publisher))
+	r.Post("/drafts/content/:uuid/annotations/publish", resources.Publish(publisher))
 
 	var monitoringRouter http.Handler = r
 	monitoringRouter = httphandlers.TransactionAwareRequestLoggingHandler(log.StandardLogger(), monitoringRouter)
