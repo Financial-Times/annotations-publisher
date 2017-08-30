@@ -41,7 +41,7 @@ func writeMsg(w http.ResponseWriter, status int, msg string) {
 	w.WriteHeader(status)
 
 	resp := make(map[string]interface{})
-	resp["msg"] = msg
+	resp["message"] = msg
 
 	enc := json.NewEncoder(w)
 	enc.Encode(&resp)

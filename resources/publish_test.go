@@ -18,10 +18,10 @@ func TestPublish(t *testing.T) {
 	r := vestigo.NewRouter()
 	pub := &mockPublisher{nil}
 
-	r.Get("/:uuid/publish", Publish(pub))
+	r.Post("/drafts/content/:uuid/annotations/publish", Publish(pub))
 
 	w := httptest.NewRecorder()
-	req := httptest.NewRequest("GET", "/a-valid-uuid/publish", strings.NewReader(`{}`))
+	req := httptest.NewRequest("POST", "/drafts/content/a-valid-uuid/annotations/publish", strings.NewReader(`{}`))
 
 	r.ServeHTTP(w, req)
 
@@ -32,47 +32,51 @@ func TestBodyNotJSON(t *testing.T) {
 	r := vestigo.NewRouter()
 	pub := &mockPublisher{nil}
 
-	r.Get("/:uuid/publish", Publish(pub))
+	r.Post("/drafts/content/:uuid/annotations/publish", Publish(pub))
 
 	w := httptest.NewRecorder()
-	req := httptest.NewRequest("GET", "/a-valid-uuid/publish", strings.NewReader(`{\`))
+	req := httptest.NewRequest("POST", "/drafts/content/a-valid-uuid/annotations/publish", strings.NewReader(`{\`))
 
 	r.ServeHTTP(w, req)
 
 	resp, err := marshal(w.Body)
 	require.NoError(t, err)
 	assert.Equal(t, http.StatusBadRequest, w.Code)
-	assert.Equal(t, "Failed to process request json. Please provide a valid json request body", resp["msg"])
+	assert.Equal(t, "Failed to process request json. Please provide a valid json request body", resp["message"])
 }
 
 func TestRequestHasNoUUID(t *testing.T) {
-	w := httptest.NewRecorder()
-	r := httptest.NewRequest("GET", "/publish", strings.NewReader(`{\`))
-
+	r := vestigo.NewRouter()
 	pub := &mockPublisher{nil}
-	Publish(pub)(w, r)
+
+	r.Post("/drafts/content/:uuid/annotations/publish", Publish(pub))
+
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest("POST", "/drafts/content//annotations/publish", strings.NewReader(`{}`))
+
+	r.ServeHTTP(w, req)
 
 	resp, err := marshal(w.Body)
 	require.NoError(t, err)
 	assert.Equal(t, http.StatusBadRequest, w.Code)
-	assert.Equal(t, "Please specify a valid uuid in the request", resp["msg"])
+	assert.Equal(t, "Please specify a valid uuid in the request", resp["message"])
 }
 
 func TestPublishFailed(t *testing.T) {
 	r := vestigo.NewRouter()
 	pub := &mockPublisher{errors.New("eek")}
 
-	r.Get("/:uuid/publish", Publish(pub))
+	r.Post("/drafts/content/:uuid/annotations/publish", Publish(pub))
 
 	w := httptest.NewRecorder()
-	req := httptest.NewRequest("GET", "/a-valid-uuid/publish", strings.NewReader(`{}`))
+	req := httptest.NewRequest("POST", "/drafts/content/a-valid-uuid/annotations/publish", strings.NewReader(`{}`))
 
 	r.ServeHTTP(w, req)
 
 	resp, err := marshal(w.Body)
 	require.NoError(t, err)
 	assert.Equal(t, http.StatusServiceUnavailable, w.Code)
-	assert.Equal(t, "eek", resp["msg"])
+	assert.Equal(t, "eek", resp["message"])
 }
 
 func marshal(body *bytes.Buffer) (map[string]interface{}, error) {
