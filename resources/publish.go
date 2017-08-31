@@ -38,6 +38,7 @@ func Publish(publisher annotations.Publisher) func(w http.ResponseWriter, r *htt
 }
 
 func writeMsg(w http.ResponseWriter, status int, msg string) {
+	w.Header().Add("Content-Type", "application/json")
 	w.WriteHeader(status)
 
 	resp := make(map[string]interface{})

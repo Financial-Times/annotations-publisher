@@ -17,6 +17,65 @@ schemes:
   - https
 
 paths:
+  /drafts/content/{uuid}/annotations/publish:
+    post:
+      summary: Publish Annotations for Content
+      description: Accepts annotations in an array, and publishes them to UPP
+      tags:
+        - Public API
+      produces:
+        - application/json
+      consumes:
+        - application/json
+      parameters:
+        - name: uuid
+          in: path
+          required: true
+          description: An RFC4122 V4 UUID for a piece of content
+          type: string
+          x-example: 0620cfe1-e7ee-44d6-918e-e5ca278d2245
+        - name: annotations
+          in: body
+          required: true
+          description: An array of PAC style annotations to publish to UPP
+          schema:
+            type: object
+            properties:
+              submittedBy:
+                type: string
+                x-example: john.smith
+              annotations:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    id:
+                      type: string
+                      x-example: http://www.ft.com/thing/5bd49568-6d7c-3c10-a5b0-2f3fd5974a6b
+                    predicate:
+                      type: string
+                      x-example: http://www.ft.com/ontology/annotation/hasContributor
+            example:
+              submittedBy: john.smith
+              annotations:
+                - id: http://www.ft.com/thing/5bd49568-6d7c-3c10-a5b0-2f3fd5974a6b
+                  predicate: http://www.ft.com/ontology/annotation/hasContributor
+      responses:
+        202:
+          description: The annotations have been accepted for publishing by UPP. N.B. this does not guarantee that the annotations will publish successfully.
+          examples:
+            application/json:
+              message: Publish accepted
+        400:
+          description: The UUID specified in the path is invalid, or the request body is not in a valid JSON format.
+          examples:
+            application/json:
+              message: Please specify a valid uuid in the request
+        503:
+          description: A failure occurred while attempting to publish to UPP. Please check the `/__health` endpoint and try again.
+          examples:
+            application/json:
+              message: Failed to publish to UPP
   /__health:
     get:
       summary: Healthchecks
@@ -48,7 +107,6 @@ paths:
                   checkOutput: Technical output from the check
                   lastUpdated: 2017-08-03T10:44:32.324709638+01:00
               ok: true
-
   /__build-info:
     get:
       summary: Build Information
