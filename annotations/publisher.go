@@ -3,8 +3,10 @@ package annotations
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
+	"strings"
 )
 
 type Publisher interface {
@@ -17,11 +19,12 @@ type uppPublisher struct {
 	client          *http.Client
 	originSystemID  string
 	publishEndpoint string
+	publishAuth     string
 	gtgEndpoint     string
 }
 
-func NewPublisher(originSystemID string, publishEndpoint string, gtgEndpoint string) Publisher {
-	return &uppPublisher{client: &http.Client{}, originSystemID: originSystemID, publishEndpoint: publishEndpoint, gtgEndpoint: gtgEndpoint}
+func NewPublisher(originSystemID string, publishEndpoint string, publishAuth string, gtgEndpoint string) Publisher {
+	return &uppPublisher{client: &http.Client{}, originSystemID: originSystemID, publishEndpoint: publishEndpoint, publishAuth: publishAuth, gtgEndpoint: gtgEndpoint}
 }
 
 func (a *uppPublisher) Publish(uuid string, body map[string]interface{}) error {
@@ -32,6 +35,11 @@ func (a *uppPublisher) Publish(uuid string, body map[string]interface{}) error {
 	}
 
 	req, err := http.NewRequest("POST", a.publishEndpoint, bytes.NewReader(bodyJSON))
+	if err != nil {
+		return err
+	}
+
+	err = a.addBasicAuth(req)
 	if err != nil {
 		return err
 	}
@@ -49,6 +57,15 @@ func (a *uppPublisher) Publish(uuid string, body map[string]interface{}) error {
 		return fmt.Errorf("Publish to %v returned a %v status code", a.publishEndpoint, resp.StatusCode)
 	}
 
+	return nil
+}
+
+func (a *uppPublisher) addBasicAuth(r *http.Request) error {
+	auth := strings.Split(a.publishAuth, ":")
+	if len(auth) != 2 {
+		return errors.New("Invalid auth configured")
+	}
+	r.SetBasicAuth(auth[0], auth[1])
 	return nil
 }
 

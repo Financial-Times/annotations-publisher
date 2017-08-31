@@ -44,21 +44,25 @@ func main() {
 
 	annotationsEndpoint := app.String(cli.StringOpt{
 		Name:   "annotations-publish-endpoint",
-		Value:  "https://pre-prod-up.ft.com/",
 		Desc:   "Endpoint to publish annotations to UPP",
 		EnvVar: "ANNOTATIONS_PUBLISH_ENDPOINT",
 	})
 
 	annotationsGTGEndpoint := app.String(cli.StringOpt{
 		Name:   "annotations-publish-gtg-endpoint",
-		Value:  "https://pre-prod-up.ft.com/",
-		Desc:   "Endpoint to publish annotations to UPP",
-		EnvVar: "ANNOTATIONS_PUBLISH_ENDPOINT",
+		Desc:   "GTG Endpoint for publishing annotations to UPP",
+		EnvVar: "ANNOTATIONS_PUBLISH_GTG_ENDPOINT",
+	})
+
+	annotationsAuth := app.String(cli.StringOpt{
+		Name:   "annotations-publish-auth",
+		Desc:   "Basic auth to use for publishing annotations, in the format username:password",
+		EnvVar: "ANNOTATIONS_PUBLISH_AUTH",
 	})
 
 	originSystemID := app.String(cli.StringOpt{
 		Name:   "origin-system-id",
-		Value:  "pac",
+		Value:  "http://cmdb.ft.com/systems/pac",
 		Desc:   "The system this publish originated from",
 		EnvVar: "ORIGIN_SYSTEM_ID",
 	})
@@ -76,7 +80,7 @@ func main() {
 	app.Action = func() {
 		log.Infof("System code: %s, App Name: %s, Port: %s", *appSystemCode, *appName, *port)
 
-		publisher := annotations.NewPublisher(*originSystemID, *annotationsEndpoint, *annotationsGTGEndpoint)
+		publisher := annotations.NewPublisher(*originSystemID, *annotationsEndpoint, *annotationsAuth, *annotationsGTGEndpoint)
 		healthService := health.NewHealthService(*appSystemCode, *appName, appDescription, publisher)
 
 		serveEndpoints(*port, apiYml, publisher, healthService)
