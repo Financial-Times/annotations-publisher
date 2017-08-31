@@ -8,18 +8,18 @@ import (
 	"testing"
 
 	"github.com/husobee/vestigo"
+	"github.com/pborman/uuid"
 	"github.com/stretchr/testify/assert"
-	"github.com/twinj/uuid"
 )
 
 func TestPublish(t *testing.T) {
-	uuid := uuid.NewV4()
-	server := startMockServer(t, uuid.String(), true, true)
+	uuid := uuid.New()
+	server := startMockServer(t, uuid, true, true)
 	defer server.Close()
 
 	publisher := NewPublisher("originSystemID", server.URL+"/notify", "user:pass", server.URL+"/__gtg")
 
-	err := publisher.Publish(uuid.String(), make(map[string]interface{}))
+	err := publisher.Publish(uuid, make(map[string]interface{}))
 	assert.NoError(t, err)
 }
 
@@ -49,14 +49,14 @@ func TestPublishRequestFailsServerUnavailable(t *testing.T) {
 }
 
 func TestPublishRequestUnsuccessful(t *testing.T) {
-	uuid := uuid.NewV4()
-	server := startMockServer(t, uuid.String(), false, true)
+	uuid := uuid.New()
+	server := startMockServer(t, uuid, false, true)
 	defer server.Close()
 
 	publisher := NewPublisher("originSystemID", server.URL+"/notify", "user:pass", server.URL+"/__gtg")
 
 	body := make(map[string]interface{})
-	err := publisher.Publish(uuid.String(), body)
+	err := publisher.Publish(uuid, body)
 	assert.EqualError(t, err, fmt.Sprintf("Publish to %v/notify returned a 503 status code", server.URL))
 }
 

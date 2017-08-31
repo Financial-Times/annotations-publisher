@@ -1,1 +1,3 @@
 /annotations-publisher
+/vendor/*
+!/vendor/vendor.json
