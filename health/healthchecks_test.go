@@ -67,7 +67,7 @@ func (m *mockPublisher) GTG() error {
 	return m.gtg
 }
 
-func (m *mockPublisher) Publish(uuid string, body map[string]interface{}) error {
+func (m *mockPublisher) Publish(uuid string, tid string, body map[string]interface{}) error {
 	return nil
 }
 
