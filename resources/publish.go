@@ -5,6 +5,7 @@ import (
 	"net/http"
 
 	"github.com/Financial-Times/annotations-publisher/annotations"
+	tid "github.com/Financial-Times/transactionid-utils-go"
 	"github.com/husobee/vestigo"
 	log "github.com/sirupsen/logrus"
 )
@@ -27,7 +28,8 @@ func Publish(publisher annotations.Publisher) func(w http.ResponseWriter, r *htt
 			return
 		}
 
-		err = publisher.Publish(uuid, body)
+		txid := tid.GetTransactionIDFromRequest(r)
+		err = publisher.Publish(uuid, txid, body)
 		if err != nil {
 			writeMsg(w, http.StatusServiceUnavailable, err.Error())
 			return

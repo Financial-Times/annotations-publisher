@@ -12,7 +12,7 @@ import (
 type Publisher interface {
 	GTG() error
 	Endpoint() string
-	Publish(uuid string, body map[string]interface{}) error
+	Publish(uuid string, tid string, body map[string]interface{}) error
 }
 
 type uppPublisher struct {
@@ -27,7 +27,7 @@ func NewPublisher(originSystemID string, publishEndpoint string, publishAuth str
 	return &uppPublisher{client: &http.Client{}, originSystemID: originSystemID, publishEndpoint: publishEndpoint, publishAuth: publishAuth, gtgEndpoint: gtgEndpoint}
 }
 
-func (a *uppPublisher) Publish(uuid string, body map[string]interface{}) error {
+func (a *uppPublisher) Publish(uuid string, tid string, body map[string]interface{}) error {
 	body["uuid"] = uuid
 	bodyJSON, err := json.Marshal(body)
 	if err != nil {
@@ -46,6 +46,7 @@ func (a *uppPublisher) Publish(uuid string, body map[string]interface{}) error {
 
 	req.Header.Add("User-Agent", "PAC annotations-publisher")
 	req.Header.Add("X-Origin-System-Id", a.originSystemID)
+	req.Header.Add("X-Request-Id", tid)
 	req.Header.Add("Content-Type", "application/json")
 
 	resp, err := a.client.Do(req)

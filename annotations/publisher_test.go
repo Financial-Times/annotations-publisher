@@ -19,7 +19,7 @@ func TestPublish(t *testing.T) {
 
 	publisher := NewPublisher("originSystemID", server.URL+"/notify", "user:pass", server.URL+"/__gtg")
 
-	err := publisher.Publish(uuid, make(map[string]interface{}))
+	err := publisher.Publish(uuid, "tid", make(map[string]interface{}))
 	assert.NoError(t, err)
 }
 
@@ -28,7 +28,7 @@ func TestPublishFailsToMarshalBodyToJSON(t *testing.T) {
 
 	body := make(map[string]interface{})
 	body["dodgy!"] = func() {}
-	err := publisher.Publish("a-valid-uuid", body)
+	err := publisher.Publish("a-valid-uuid", "tid", body)
 	assert.EqualError(t, err, "json: unsupported type: func()")
 }
 
@@ -36,7 +36,7 @@ func TestPublishFailsInvalidURL(t *testing.T) {
 	publisher := NewPublisher("originSystemID", ":#", "user:pass", "/__gtg")
 
 	body := make(map[string]interface{})
-	err := publisher.Publish("a-valid-uuid", body)
+	err := publisher.Publish("a-valid-uuid", "tid", body)
 	assert.EqualError(t, err, "parse :: missing protocol scheme")
 }
 
@@ -44,7 +44,7 @@ func TestPublishRequestFailsServerUnavailable(t *testing.T) {
 	publisher := NewPublisher("originSystemID", "/publish", "user:pass", "/__gtg")
 
 	body := make(map[string]interface{})
-	err := publisher.Publish("a-valid-uuid", body)
+	err := publisher.Publish("a-valid-uuid", "tid", body)
 	assert.EqualError(t, err, "Post /publish: unsupported protocol scheme \"\"")
 }
 
@@ -56,7 +56,7 @@ func TestPublishRequestUnsuccessful(t *testing.T) {
 	publisher := NewPublisher("originSystemID", server.URL+"/notify", "user:pass", server.URL+"/__gtg")
 
 	body := make(map[string]interface{})
-	err := publisher.Publish(uuid, body)
+	err := publisher.Publish(uuid, "tid", body)
 	assert.EqualError(t, err, fmt.Sprintf("Publish to %v/notify returned a 503 status code", server.URL))
 }
 
@@ -69,13 +69,13 @@ func TestPublisherAuthIsInvalid(t *testing.T) {
 	publisher := NewPublisher("originSystemID", "/publish", "user", "/__gtg")
 
 	body := make(map[string]interface{})
-	err := publisher.Publish("a-valid-uuid", body)
+	err := publisher.Publish("a-valid-uuid", "tid", body)
 	assert.EqualError(t, err, "Invalid auth configured")
 
 	// Now check for too many ':'s
 	publisher = NewPublisher("originSystemID", "/publish", "user:pass:anotherPass", "/__gtg")
 
-	err = publisher.Publish("a-valid-uuid", body)
+	err = publisher.Publish("a-valid-uuid", "tid", body)
 	assert.EqualError(t, err, "Invalid auth configured")
 }
 
@@ -131,6 +131,9 @@ func startMockServer(t *testing.T, uuid string, publishOk bool, gtgOk bool) *htt
 
 		originSystemID := r.Header.Get("X-Origin-System-Id")
 		assert.Equal(t, "originSystemID", originSystemID)
+
+		tid := r.Header.Get("X-Request-Id")
+		assert.Equal(t, "tid", tid)
 
 		user, pass, ok := r.BasicAuth()
 		assert.True(t, ok)

@@ -98,6 +98,6 @@ func (m *mockPublisher) Endpoint() string {
 	return ""
 }
 
-func (m *mockPublisher) Publish(uuid string, body map[string]interface{}) error {
+func (m *mockPublisher) Publish(uuid string, tid string, body map[string]interface{}) error {
 	return m.publishErr
 }
