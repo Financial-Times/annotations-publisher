@@ -54,6 +54,8 @@ func (a *uppPublisher) Publish(uuid string, tid string, body map[string]interfac
 		return err
 	}
 
+	defer resp.Body.Close()
+
 	if resp.StatusCode != http.StatusOK {
 		return fmt.Errorf("Publish to %v returned a %v status code", a.publishEndpoint, resp.StatusCode)
 	}
@@ -81,6 +83,8 @@ func (a *uppPublisher) GTG() error {
 	if err != nil {
 		return err
 	}
+
+	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
 		return fmt.Errorf("GTG %v returned a %v status code", a.gtgEndpoint, resp.StatusCode)
