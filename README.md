@@ -48,9 +48,9 @@ Options:
 
 3. Test:
 
-    1. Either using curl:
-
-         curl http://localhost:8080/__health | jq
+```
+curl http://localhost:8080/__health | jq
+```
 
 ## Build and deployment
 
@@ -63,13 +63,11 @@ For a full description of API endpoints for the service, please see the [Open AP
 
 ### POST
 
-Using curl:
+Currently, this endpoint will publish annotations directly to UPP.
 
 ```
 curl http://localhost:8080/draft/content/b7b871f6-8a89-11e4-8e24-00144feabdc0/annotations/publish -XPOST --data '{}'
 ```
-
-Currently, this endpoint will publish annotations directly to UPP
 
 ## Healthchecks
 
