@@ -1,0 +1,8 @@
+service:
+  name: "" # The name of the service, should be defined in the specific app-configs folder.
+  hasHealthcheck: "true"
+  hasOpenAPI: "true"
+replicaCount: 2
+image:
+  repository: coco/annotations-publisher
+  pullPolicy: Always
