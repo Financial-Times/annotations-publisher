@@ -9,6 +9,7 @@ import (
 	"strings"
 )
 
+// Publisher provides an interface to publish annotations to UPP
 type Publisher interface {
 	GTG() error
 	Endpoint() string
@@ -23,10 +24,12 @@ type uppPublisher struct {
 	gtgEndpoint     string
 }
 
+// NewPublisher returns a new Publisher instance
 func NewPublisher(originSystemID string, publishEndpoint string, publishAuth string, gtgEndpoint string) Publisher {
 	return &uppPublisher{client: &http.Client{}, originSystemID: originSystemID, publishEndpoint: publishEndpoint, publishAuth: publishAuth, gtgEndpoint: gtgEndpoint}
 }
 
+// Publish sends the annotations to UPP via the configured publishEndpoint. Requests contain X-Origin-System-Id and X-Request-Id and a User-Agent as provided.
 func (a *uppPublisher) Publish(uuid string, tid string, body map[string]interface{}) error {
 	body["uuid"] = uuid
 	bodyJSON, err := json.Marshal(body)
@@ -72,6 +75,7 @@ func (a *uppPublisher) addBasicAuth(r *http.Request) error {
 	return nil
 }
 
+// GTG performs a health check against the UPP publish endpoint
 func (a *uppPublisher) GTG() error {
 	req, err := http.NewRequest("GET", a.gtgEndpoint, nil)
 	if err != nil {
@@ -93,6 +97,7 @@ func (a *uppPublisher) GTG() error {
 	return nil
 }
 
+// Endpoint returns the configured publish endpoint
 func (a *uppPublisher) Endpoint() string {
 	return a.publishEndpoint
 }

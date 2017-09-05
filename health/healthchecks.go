@@ -9,11 +9,13 @@ import (
 	"github.com/Financial-Times/service-status-go/gtg"
 )
 
+// HealthService runs application health checks, and provides the /__health http endpoint
 type HealthService struct {
 	fthealth.HealthCheck
 	publisher annotations.Publisher
 }
 
+// NewHealthService returns a new HealthService
 func NewHealthService(appSystemCode string, appName string, appDescription string, publisher annotations.Publisher) *HealthService {
 	service := &HealthService{publisher: publisher}
 	service.SystemCode = appSystemCode
@@ -25,6 +27,7 @@ func NewHealthService(appSystemCode string, appName string, appDescription strin
 	return service
 }
 
+// HealthCheckHandleFunc provides the http endpoint function
 func (service *HealthService) HealthCheckHandleFunc() func(w http.ResponseWriter, r *http.Request) {
 	return fthealth.Handler(service)
 }
@@ -48,6 +51,7 @@ func (service *HealthService) publishHealthChecker() (string, error) {
 	return "UPP Publishing Pipeline is healthy", nil
 }
 
+// GTG returns the current gtg status
 func (service *HealthService) GTG() gtg.Status {
 	return gtg.Status{GoodToGo: true, Message: "OK"} // even if UPP is unhealthy, we should still attempt to publish, and therefore remain ready
 }
