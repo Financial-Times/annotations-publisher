@@ -34,9 +34,9 @@ spec:
               key: upp.annotations.publish.gtg.endpoint
         - name: ANNOTATIONS_PUBLISH_AUTH
           valueFrom:
-            configMapKeyRef:
-              name: global-config
-              key: upp.annotations.publish.auth
+            secretKeyRef:
+              name: upp-annotations
+              key: publish.auth
         ports:
         - containerPort: 8080
         livenessProbe:
