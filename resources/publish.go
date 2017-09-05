@@ -10,6 +10,7 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
+// Publish provides functionality to publish PAC annotations to UPP
 func Publish(publisher annotations.Publisher) func(w http.ResponseWriter, r *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
 		uuid := vestigo.Param(r, "uuid")
