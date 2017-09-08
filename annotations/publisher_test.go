@@ -79,6 +79,18 @@ func TestPublisherAuthIsInvalid(t *testing.T) {
 	assert.EqualError(t, err, "Invalid auth configured")
 }
 
+func TestPublisherAuthenticationFails(t *testing.T) {
+	uuid := uuid.New()
+	server := startMockServer(t, uuid, false, true)
+	defer server.Close()
+
+	publisher := NewPublisher("originSystemID", server.URL+"/notify", "user:should-fail", server.URL+"/__gtg")
+
+	body := make(map[string]interface{})
+	err := publisher.Publish("a-valid-uuid", "tid", body)
+	assert.EqualError(t, err, "Publish authentication is invalid")
+}
+
 func TestPublisherGTG(t *testing.T) {
 	server := startMockServer(t, "", true, true)
 	defer server.Close()
@@ -138,6 +150,12 @@ func startMockServer(t *testing.T, uuid string, publishOk bool, gtgOk bool) *htt
 		user, pass, ok := r.BasicAuth()
 		assert.True(t, ok)
 		assert.Equal(t, "user", user)
+
+		if pass != "pass" {
+			w.WriteHeader(http.StatusUnauthorized)
+			return
+		}
+
 		assert.Equal(t, "pass", pass)
 
 		dec := json.NewDecoder(r.Body)

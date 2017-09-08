@@ -31,6 +31,11 @@ func Publish(publisher annotations.Publisher) func(w http.ResponseWriter, r *htt
 
 		txid := tid.GetTransactionIDFromRequest(r)
 		err = publisher.Publish(uuid, txid, body)
+		if err == annotations.ErrInvalidAuthentication { // the service config needs to be updated for this to work
+			writeMsg(w, http.StatusInternalServerError, err.Error())
+			return
+		}
+
 		if err != nil {
 			log.WithField("reason", err).Warn("Failed to publish annotations to UPP")
 			writeMsg(w, http.StatusServiceUnavailable, err.Error())

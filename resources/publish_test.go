@@ -9,6 +9,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/Financial-Times/annotations-publisher/annotations"
 	"github.com/husobee/vestigo"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -77,6 +78,23 @@ func TestPublishFailed(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, http.StatusServiceUnavailable, w.Code)
 	assert.Equal(t, "eek", resp["message"])
+}
+
+func TestPublishAuthenticationInvalid(t *testing.T) {
+	r := vestigo.NewRouter()
+	pub := &mockPublisher{annotations.ErrInvalidAuthentication}
+
+	r.Post("/drafts/content/:uuid/annotations/publish", Publish(pub))
+
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest("POST", "/drafts/content/a-valid-uuid/annotations/publish", strings.NewReader(`{}`))
+
+	r.ServeHTTP(w, req)
+
+	resp, err := marshal(w.Body)
+	require.NoError(t, err)
+	assert.Equal(t, http.StatusInternalServerError, w.Code)
+	assert.Equal(t, "Publish authentication is invalid", resp["message"])
 }
 
 func marshal(body *bytes.Buffer) (map[string]interface{}, error) {

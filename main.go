@@ -3,6 +3,7 @@ package main
 import (
 	"net/http"
 	"os"
+	"strings"
 
 	"github.com/Financial-Times/annotations-publisher/annotations"
 	"github.com/Financial-Times/annotations-publisher/health"
@@ -80,7 +81,7 @@ func main() {
 	app.Action = func() {
 		log.Infof("System code: %s, App Name: %s, Port: %s", *appSystemCode, *appName, *port)
 
-		publisher := annotations.NewPublisher(*originSystemID, *annotationsEndpoint, *annotationsAuth, *annotationsGTGEndpoint)
+		publisher := annotations.NewPublisher(*originSystemID, *annotationsEndpoint, strings.TrimSpace(*annotationsAuth), *annotationsGTGEndpoint)
 		healthService := health.NewHealthService(*appSystemCode, *appName, appDescription, publisher)
 
 		serveEndpoints(*port, apiYml, publisher, healthService)
