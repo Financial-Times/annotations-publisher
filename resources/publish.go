@@ -24,7 +24,7 @@ func Publish(publisher annotations.Publisher) func(w http.ResponseWriter, r *htt
 		dec := json.NewDecoder(r.Body)
 		err := dec.Decode(&body)
 		if err != nil {
-			log.WithError(err).Error("Failed to decode publish body")
+			log.WithField("reason", err).Warn("Failed to decode publish body")
 			writeMsg(w, http.StatusBadRequest, "Failed to process request json. Please provide a valid json request body")
 			return
 		}
@@ -32,6 +32,7 @@ func Publish(publisher annotations.Publisher) func(w http.ResponseWriter, r *htt
 		txid := tid.GetTransactionIDFromRequest(r)
 		err = publisher.Publish(uuid, txid, body)
 		if err != nil {
+			log.WithField("reason", err).Warn("Failed to publish annotations to UPP")
 			writeMsg(w, http.StatusServiceUnavailable, err.Error())
 			return
 		}
