@@ -9,6 +9,9 @@ import (
 	"strings"
 )
 
+// ErrInvalidAuthentication occurs when UPP responds with a 401
+var ErrInvalidAuthentication = errors.New("Publish authentication is invalid")
+
 // Publisher provides an interface to publish annotations to UPP
 type Publisher interface {
 	GTG() error
@@ -58,6 +61,10 @@ func (a *uppPublisher) Publish(uuid string, tid string, body map[string]interfac
 	}
 
 	defer resp.Body.Close()
+
+	if resp.StatusCode == http.StatusUnauthorized {
+		return ErrInvalidAuthentication
+	}
 
 	if resp.StatusCode != http.StatusOK {
 		return fmt.Errorf("Publish to %v returned a %v status code", a.publishEndpoint, resp.StatusCode)
