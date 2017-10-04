@@ -74,6 +74,18 @@ func main() {
 		EnvVar: "API_YML",
 	})
 
+	saveEndpoint := app.String(cli.StringOpt{
+		Name:   "annotations-save-endpoint",
+		Desc:   "Endpoint to save annotations to PAC",
+		EnvVar: "ANNOTATIONS_SAVE_ENDPOINT",
+	})
+
+	saveGTGEndpoint := app.String(cli.StringOpt{
+		Name:   "annotations-save-gtg-endpoint",
+		Desc:   "GTG Endpoint for the service which saves PAC annotations (usually draft-annotations-api)",
+		EnvVar: "ANNOTATIONS_SAVE_GTG_ENDPOINT",
+	})
+
 	log.SetLevel(log.InfoLevel)
 	log.Infof("[Startup] %v is starting", *appSystemCode)
 
@@ -81,6 +93,8 @@ func main() {
 		log.Infof("System code: %s, App Name: %s, Port: %s", *appSystemCode, *appName, *port)
 
 		publisher := annotations.NewPublisher(*originSystemID, *annotationsEndpoint, *annotationsAuth, *annotationsGTGEndpoint)
+		writer := annotations.NewWriter(client, saveEndpoint, saveGTGEndpoint)
+
 		healthService := health.NewHealthService(*appSystemCode, *appName, appDescription, publisher)
 
 		serveEndpoints(*port, apiYml, publisher, healthService)

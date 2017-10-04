@@ -11,7 +11,9 @@ import (
 
 func TestPublishCheck(t *testing.T) {
 	mockPublisher := &mockPublisher{gtg: nil, endpoint: "/__gtg"}
-	health := NewHealthService("appSystemCode", "appName", "appDescription", mockPublisher)
+	mockWriter := &mockWriter{gtg: nil, endpoint: "/__gtg"}
+
+	health := NewHealthService("appSystemCode", "appName", "appDescription", mockPublisher, mockWriter)
 
 	check := health.publishCheck()
 	assert.Equal(t, "check-annotations-publish-health", check.ID)
@@ -28,16 +30,31 @@ func TestPublishCheck(t *testing.T) {
 
 func TestPublishCheckFails(t *testing.T) {
 	mockPublisher := &mockPublisher{gtg: errors.New("eek"), endpoint: "/__gtg"}
-	health := NewHealthService("appSystemCode", "appName", "appDescription", mockPublisher)
+	mockWriter := &mockWriter{gtg: nil, endpoint: "/__gtg"}
+
+	health := NewHealthService("appSystemCode", "appName", "appDescription", mockPublisher, mockWriter)
 
 	msg, err := health.publishCheck().Checker()
 	assert.Equal(t, "UPP Publishing Pipeline is not healthy", msg)
 	assert.EqualError(t, err, "eek")
 }
 
+func TestWriterCheckFails(t *testing.T) {
+	mockPublisher := &mockPublisher{gtg: nil, endpoint: "/__gtg"}
+	mockWriter := &mockWriter{gtg: errors.New("eek"), endpoint: "/__gtg"}
+
+	health := NewHealthService("appSystemCode", "appName", "appDescription", mockPublisher, mockWriter)
+
+	msg, err := health.writeCheck().Checker()
+	assert.Equal(t, "PAC annotations writer is not healthy", msg)
+	assert.EqualError(t, err, "eek")
+}
+
 func TestHealthServiceHandler(t *testing.T) {
 	mockPublisher := &mockPublisher{gtg: nil, endpoint: "/__gtg"}
-	health := NewHealthService("appSystemCode", "appName", "appDescription", mockPublisher)
+	mockWriter := &mockWriter{gtg: nil, endpoint: "/__gtg"}
+
+	health := NewHealthService("appSystemCode", "appName", "appDescription", mockPublisher, mockWriter)
 
 	handler := health.HealthCheckHandleFunc()
 	w := httptest.NewRecorder()
@@ -51,7 +68,9 @@ func TestHealthServiceHandler(t *testing.T) {
 
 func TestGTG(t *testing.T) {
 	mockPublisher := &mockPublisher{gtg: errors.New("eek"), endpoint: "/__gtg"}
-	health := NewHealthService("appSystemCode", "appName", "appDescription", mockPublisher)
+	mockWriter := &mockWriter{gtg: nil, endpoint: "/__gtg"}
+
+	health := NewHealthService("appSystemCode", "appName", "appDescription", mockPublisher, mockWriter)
 
 	gtg := health.GTG()
 	assert.True(t, gtg.GoodToGo)
@@ -72,5 +91,22 @@ func (m *mockPublisher) Publish(uuid string, tid string, body map[string]interfa
 }
 
 func (m *mockPublisher) Endpoint() string {
+	return m.endpoint
+}
+
+type mockWriter struct {
+	gtg      error
+	endpoint string
+}
+
+func (m *mockWriter) GTG() error {
+	return m.gtg
+}
+
+func (m *mockWriter) Write(uuid string, tid string, body map[string]interface{}) (map[string]interface{}, error) {
+	return nil, nil
+}
+
+func (m *mockWriter) Endpoint() string {
 	return m.endpoint
 }

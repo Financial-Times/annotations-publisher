@@ -14,7 +14,7 @@ import (
 
 func TestPublish(t *testing.T) {
 	uuid := uuid.New()
-	server := startMockServer(t, uuid, true, true)
+	server := startMockPublishServer(t, uuid, true, true)
 	defer server.Close()
 
 	publisher := NewPublisher("originSystemID", server.URL+"/notify", "user:pass", server.URL+"/__gtg")
@@ -50,7 +50,7 @@ func TestPublishRequestFailsServerUnavailable(t *testing.T) {
 
 func TestPublishRequestUnsuccessful(t *testing.T) {
 	uuid := uuid.New()
-	server := startMockServer(t, uuid, false, true)
+	server := startMockPublishServer(t, uuid, false, true)
 	defer server.Close()
 
 	publisher := NewPublisher("originSystemID", server.URL+"/notify", "user:pass", server.URL+"/__gtg")
@@ -81,7 +81,7 @@ func TestPublisherAuthIsInvalid(t *testing.T) {
 
 func TestPublisherAuthenticationFails(t *testing.T) {
 	uuid := uuid.New()
-	server := startMockServer(t, uuid, false, true)
+	server := startMockPublishServer(t, uuid, false, true)
 	defer server.Close()
 
 	publisher := NewPublisher("originSystemID", server.URL+"/notify", "user:should-fail", server.URL+"/__gtg")
@@ -92,7 +92,7 @@ func TestPublisherAuthenticationFails(t *testing.T) {
 }
 
 func TestPublisherGTG(t *testing.T) {
-	server := startMockServer(t, "", true, true)
+	server := startMockPublishServer(t, "", true, true)
 	defer server.Close()
 
 	publisher := NewPublisher("originSystemID", "publishEndpoint", "user:pass", server.URL+"/__gtg")
@@ -101,7 +101,7 @@ func TestPublisherGTG(t *testing.T) {
 }
 
 func TestPublisherGTGFails(t *testing.T) {
-	server := startMockServer(t, "", true, false)
+	server := startMockPublishServer(t, "", true, false)
 	defer server.Close()
 
 	publisher := NewPublisher("originSystemID", "publishEndpoint", "user:pass", server.URL+"/__gtg")
@@ -121,7 +121,7 @@ func TestPublisherGTGInvalidURL(t *testing.T) {
 	assert.EqualError(t, err, "parse :: missing protocol scheme")
 }
 
-func startMockServer(t *testing.T, uuid string, publishOk bool, gtgOk bool) *httptest.Server {
+func startMockPublishServer(t *testing.T, uuid string, publishOk bool, gtgOk bool) *httptest.Server {
 	r := vestigo.NewRouter()
 	r.Get("/__gtg", func(w http.ResponseWriter, r *http.Request) {
 		userAgent := r.Header.Get("User-Agent")

@@ -11,7 +11,7 @@ import (
 )
 
 // Publish provides functionality to publish PAC annotations to UPP
-func Publish(publisher annotations.Publisher) func(w http.ResponseWriter, r *http.Request) {
+func Publish(writer annotations.Writer, publisher annotations.Publisher) func(w http.ResponseWriter, r *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
 		uuid := vestigo.Param(r, "uuid")
 		if uuid == "" {
@@ -30,7 +30,13 @@ func Publish(publisher annotations.Publisher) func(w http.ResponseWriter, r *htt
 		}
 
 		txid := tid.GetTransactionIDFromRequest(r)
-		err = publisher.Publish(uuid, txid, body)
+		savedBody, err := writer.Write(uuid, txid, body)
+		if err != nil {
+			writeMsg(w, http.StatusInternalServerError, err.Error())
+			return
+		}
+
+		err = publisher.Publish(uuid, txid, savedBody)
 		if err == annotations.ErrInvalidAuthentication { // the service config needs to be updated for this to work
 			writeMsg(w, http.StatusInternalServerError, err.Error())
 			return
