@@ -68,7 +68,7 @@ func (p *publishResourceTestSuite) TestWriteFails() {
 
 	resp, err := marshal(w.Body)
 	require.NoError(p.T(), err)
-	assert.Equal(p.T(), http.StatusInternalServerError, w.Code)
+	assert.Equal(p.T(), http.StatusServiceUnavailable, w.Code)
 	assert.Equal(p.T(), "eek", resp["message"])
 }
 

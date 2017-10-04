@@ -92,12 +92,13 @@ func main() {
 	app.Action = func() {
 		log.Infof("System code: %s, App Name: %s, Port: %s", *appSystemCode, *appName, *port)
 
-		publisher := annotations.NewPublisher(*originSystemID, *annotationsEndpoint, *annotationsAuth, *annotationsGTGEndpoint)
-		writer := annotations.NewWriter(client, saveEndpoint, saveGTGEndpoint)
+		client := &http.Client{}
+		publisher := annotations.NewPublisher(client, *originSystemID, *annotationsEndpoint, *annotationsAuth, *annotationsGTGEndpoint)
+		writer := annotations.NewWriter(client, *saveEndpoint, *saveGTGEndpoint)
 
-		healthService := health.NewHealthService(*appSystemCode, *appName, appDescription, publisher)
+		healthService := health.NewHealthService(*appSystemCode, *appName, appDescription, publisher, writer)
 
-		serveEndpoints(*port, apiYml, publisher, healthService)
+		serveEndpoints(*port, apiYml, writer, publisher, healthService)
 	}
 
 	err := app.Run(os.Args)
@@ -107,9 +108,9 @@ func main() {
 	}
 }
 
-func serveEndpoints(port string, apiYml *string, publisher annotations.Publisher, healthService *health.HealthService) {
+func serveEndpoints(port string, apiYml *string, writer annotations.Writer, publisher annotations.Publisher, healthService *health.HealthService) {
 	r := vestigo.NewRouter()
-	r.Post("/drafts/content/:uuid/annotations/publish", resources.Publish(publisher))
+	r.Post("/drafts/content/:uuid/annotations/publish", resources.Publish(writer, publisher))
 
 	var monitoringRouter http.Handler = r
 	monitoringRouter = httphandlers.TransactionAwareRequestLoggingHandler(log.StandardLogger(), monitoringRouter)

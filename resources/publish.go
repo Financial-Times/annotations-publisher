@@ -32,7 +32,7 @@ func Publish(writer annotations.Writer, publisher annotations.Publisher) func(w 
 		txid := tid.GetTransactionIDFromRequest(r)
 		savedBody, err := writer.Write(uuid, txid, body)
 		if err != nil {
-			writeMsg(w, http.StatusInternalServerError, err.Error())
+			writeMsg(w, http.StatusServiceUnavailable, err.Error())
 			return
 		}
 

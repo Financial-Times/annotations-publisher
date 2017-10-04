@@ -28,8 +28,8 @@ type uppPublisher struct {
 }
 
 // NewPublisher returns a new Publisher instance
-func NewPublisher(originSystemID string, publishEndpoint string, publishAuth string, gtgEndpoint string) Publisher {
-	return &uppPublisher{client: &http.Client{}, originSystemID: originSystemID, publishEndpoint: publishEndpoint, publishAuth: publishAuth, gtgEndpoint: gtgEndpoint}
+func NewPublisher(client *http.Client, originSystemID string, publishEndpoint string, publishAuth string, gtgEndpoint string) Publisher {
+	return &uppPublisher{client: client, originSystemID: originSystemID, publishEndpoint: publishEndpoint, publishAuth: publishAuth, gtgEndpoint: gtgEndpoint}
 }
 
 // Publish sends the annotations to UPP via the configured publishEndpoint. Requests contain X-Origin-System-Id and X-Request-Id and a User-Agent as provided.
