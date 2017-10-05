@@ -77,12 +77,14 @@ func main() {
 	saveEndpoint := app.String(cli.StringOpt{
 		Name:   "annotations-save-endpoint",
 		Desc:   "Endpoint to save annotations to PAC",
+		Value:  "http://draft-annotations-api:8080/drafts/content/%v/annotations",
 		EnvVar: "ANNOTATIONS_SAVE_ENDPOINT",
 	})
 
 	saveGTGEndpoint := app.String(cli.StringOpt{
 		Name:   "annotations-save-gtg-endpoint",
 		Desc:   "GTG Endpoint for the service which saves PAC annotations (usually draft-annotations-api)",
+		Value:  "http://draft-annotations-api:8080/__gtg",
 		EnvVar: "ANNOTATIONS_SAVE_GTG_ENDPOINT",
 	})
 

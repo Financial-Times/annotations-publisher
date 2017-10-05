@@ -31,7 +31,8 @@ func (p *pacWriter) Write(uuid string, tid string, body map[string]interface{}) 
 		return nil, err
 	}
 
-	req, err := http.NewRequest("PUT", fmt.Sprintf(p.saveEndpoint, uuid), bytes.NewReader(bodyJSON))
+	uri := fmt.Sprintf(p.saveEndpoint, uuid)
+	req, err := http.NewRequest("PUT", uri, bytes.NewReader(bodyJSON))
 	if err != nil {
 		return nil, err
 	}
@@ -48,7 +49,7 @@ func (p *pacWriter) Write(uuid string, tid string, body map[string]interface{}) 
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("Save to %v returned a %v status code", p.saveEndpoint, resp.StatusCode)
+		return nil, fmt.Errorf("Save to %v returned a %v status code", uri, resp.StatusCode)
 	}
 
 	dec := json.NewDecoder(resp.Body)

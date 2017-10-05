@@ -63,7 +63,7 @@ func TestWriteResponseFails(t *testing.T) {
 
 	body := make(map[string]interface{})
 	_, err := writer.Write(uuid, "tid_"+uuid, body)
-	assert.EqualError(t, err, fmt.Sprintf("Save to %v/drafts/content/%%v/annotations returned a 503 status code", server.URL))
+	assert.EqualError(t, err, fmt.Sprintf("Save to %v/drafts/content/%v/annotations returned a 503 status code", server.URL, uuid))
 }
 
 func TestWriteResponseInvalidJSON(t *testing.T) {
