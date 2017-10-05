@@ -14,17 +14,17 @@ import (
 
 func TestPublish(t *testing.T) {
 	uuid := uuid.New()
-	server := startMockServer(t, uuid, true, true)
+	server := startMockPublishServer(t, uuid, true, true)
 	defer server.Close()
 
-	publisher := NewPublisher("originSystemID", server.URL+"/notify", "user:pass", server.URL+"/__gtg")
+	publisher := NewPublisher(http.DefaultClient, "originSystemID", server.URL+"/notify", "user:pass", server.URL+"/__gtg")
 
 	err := publisher.Publish(uuid, "tid", make(map[string]interface{}))
 	assert.NoError(t, err)
 }
 
 func TestPublishFailsToMarshalBodyToJSON(t *testing.T) {
-	publisher := NewPublisher("originSystemID", "/notify", "user:pass", "/__gtg")
+	publisher := NewPublisher(http.DefaultClient, "originSystemID", "/notify", "user:pass", "/__gtg")
 
 	body := make(map[string]interface{})
 	body["dodgy!"] = func() {}
@@ -33,7 +33,7 @@ func TestPublishFailsToMarshalBodyToJSON(t *testing.T) {
 }
 
 func TestPublishFailsInvalidURL(t *testing.T) {
-	publisher := NewPublisher("originSystemID", ":#", "user:pass", "/__gtg")
+	publisher := NewPublisher(http.DefaultClient, "originSystemID", ":#", "user:pass", "/__gtg")
 
 	body := make(map[string]interface{})
 	err := publisher.Publish("a-valid-uuid", "tid", body)
@@ -41,7 +41,7 @@ func TestPublishFailsInvalidURL(t *testing.T) {
 }
 
 func TestPublishRequestFailsServerUnavailable(t *testing.T) {
-	publisher := NewPublisher("originSystemID", "/publish", "user:pass", "/__gtg")
+	publisher := NewPublisher(http.DefaultClient, "originSystemID", "/publish", "user:pass", "/__gtg")
 
 	body := make(map[string]interface{})
 	err := publisher.Publish("a-valid-uuid", "tid", body)
@@ -50,10 +50,10 @@ func TestPublishRequestFailsServerUnavailable(t *testing.T) {
 
 func TestPublishRequestUnsuccessful(t *testing.T) {
 	uuid := uuid.New()
-	server := startMockServer(t, uuid, false, true)
+	server := startMockPublishServer(t, uuid, false, true)
 	defer server.Close()
 
-	publisher := NewPublisher("originSystemID", server.URL+"/notify", "user:pass", server.URL+"/__gtg")
+	publisher := NewPublisher(http.DefaultClient, "originSystemID", server.URL+"/notify", "user:pass", server.URL+"/__gtg")
 
 	body := make(map[string]interface{})
 	err := publisher.Publish(uuid, "tid", body)
@@ -61,19 +61,19 @@ func TestPublishRequestUnsuccessful(t *testing.T) {
 }
 
 func TestPublisherEndpoint(t *testing.T) {
-	publisher := NewPublisher("originSystemID", "/publish", "user:pass", "/__gtg")
+	publisher := NewPublisher(http.DefaultClient, "originSystemID", "/publish", "user:pass", "/__gtg")
 	assert.Equal(t, "/publish", publisher.Endpoint())
 }
 
 func TestPublisherAuthIsInvalid(t *testing.T) {
-	publisher := NewPublisher("originSystemID", "/publish", "user", "/__gtg")
+	publisher := NewPublisher(http.DefaultClient, "originSystemID", "/publish", "user", "/__gtg")
 
 	body := make(map[string]interface{})
 	err := publisher.Publish("a-valid-uuid", "tid", body)
 	assert.EqualError(t, err, "Invalid auth configured")
 
 	// Now check for too many ':'s
-	publisher = NewPublisher("originSystemID", "/publish", "user:pass:anotherPass", "/__gtg")
+	publisher = NewPublisher(http.DefaultClient, "originSystemID", "/publish", "user:pass:anotherPass", "/__gtg")
 
 	err = publisher.Publish("a-valid-uuid", "tid", body)
 	assert.EqualError(t, err, "Invalid auth configured")
@@ -81,10 +81,10 @@ func TestPublisherAuthIsInvalid(t *testing.T) {
 
 func TestPublisherAuthenticationFails(t *testing.T) {
 	uuid := uuid.New()
-	server := startMockServer(t, uuid, false, true)
+	server := startMockPublishServer(t, uuid, false, true)
 	defer server.Close()
 
-	publisher := NewPublisher("originSystemID", server.URL+"/notify", "user:should-fail", server.URL+"/__gtg")
+	publisher := NewPublisher(http.DefaultClient, "originSystemID", server.URL+"/notify", "user:should-fail", server.URL+"/__gtg")
 
 	body := make(map[string]interface{})
 	err := publisher.Publish("a-valid-uuid", "tid", body)
@@ -92,36 +92,36 @@ func TestPublisherAuthenticationFails(t *testing.T) {
 }
 
 func TestPublisherGTG(t *testing.T) {
-	server := startMockServer(t, "", true, true)
+	server := startMockPublishServer(t, "", true, true)
 	defer server.Close()
 
-	publisher := NewPublisher("originSystemID", "publishEndpoint", "user:pass", server.URL+"/__gtg")
+	publisher := NewPublisher(http.DefaultClient, "originSystemID", "publishEndpoint", "user:pass", server.URL+"/__gtg")
 	err := publisher.GTG()
 	assert.NoError(t, err)
 }
 
 func TestPublisherGTGFails(t *testing.T) {
-	server := startMockServer(t, "", true, false)
+	server := startMockPublishServer(t, "", true, false)
 	defer server.Close()
 
-	publisher := NewPublisher("originSystemID", "publishEndpoint", "user:pass", server.URL+"/__gtg")
+	publisher := NewPublisher(http.DefaultClient, "originSystemID", "publishEndpoint", "user:pass", server.URL+"/__gtg")
 	err := publisher.GTG()
 	assert.EqualError(t, err, fmt.Sprintf("GTG %v returned a %v status code", server.URL+"/__gtg", http.StatusServiceUnavailable))
 }
 
 func TestPublisherGTGDoRequestFails(t *testing.T) {
-	publisher := NewPublisher("originSystemID", "publishEndpoint", "user:pass", "/__gtg")
+	publisher := NewPublisher(http.DefaultClient, "originSystemID", "publishEndpoint", "user:pass", "/__gtg")
 	err := publisher.GTG()
 	assert.EqualError(t, err, "Get /__gtg: unsupported protocol scheme \"\"")
 }
 
 func TestPublisherGTGInvalidURL(t *testing.T) {
-	publisher := NewPublisher("originSystemID", "publishEndpoint", "user:pass", ":#")
+	publisher := NewPublisher(http.DefaultClient, "originSystemID", "publishEndpoint", "user:pass", ":#")
 	err := publisher.GTG()
 	assert.EqualError(t, err, "parse :: missing protocol scheme")
 }
 
-func startMockServer(t *testing.T, uuid string, publishOk bool, gtgOk bool) *httptest.Server {
+func startMockPublishServer(t *testing.T, uuid string, publishOk bool, gtgOk bool) *httptest.Server {
 	r := vestigo.NewRouter()
 	r.Get("/__gtg", func(w http.ResponseWriter, r *http.Request) {
 		userAgent := r.Header.Get("User-Agent")

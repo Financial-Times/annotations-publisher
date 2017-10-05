@@ -13,16 +13,18 @@ import (
 type HealthService struct {
 	fthealth.HealthCheck
 	publisher annotations.Publisher
+	writer    annotations.Writer
 }
 
 // NewHealthService returns a new HealthService
-func NewHealthService(appSystemCode string, appName string, appDescription string, publisher annotations.Publisher) *HealthService {
-	service := &HealthService{publisher: publisher}
+func NewHealthService(appSystemCode string, appName string, appDescription string, publisher annotations.Publisher, writer annotations.Writer) *HealthService {
+	service := &HealthService{publisher: publisher, writer: writer}
 	service.SystemCode = appSystemCode
 	service.Name = appName
 	service.Description = appDescription
 	service.Checks = []fthealth.Check{
 		service.publishCheck(),
+		service.writeCheck(),
 	}
 	return service
 }
@@ -42,6 +44,25 @@ func (service *HealthService) publishCheck() fthealth.Check {
 		TechnicalSummary: fmt.Sprintf("UPP Publishing Pipeline is not available at %v", service.publisher.Endpoint()),
 		Checker:          service.publishHealthChecker,
 	}
+}
+
+func (service *HealthService) writeCheck() fthealth.Check {
+	return fthealth.Check{
+		ID:               "check-annotations-save-health",
+		BusinessImpact:   "Saving annotations to PAC during a publish may fail",
+		Name:             "Check PAC for failures",
+		PanicGuide:       "https://dewey.ft.com/annotations-publisher.html",
+		Severity:         1,
+		TechnicalSummary: fmt.Sprintf("PAC Save endpoint is not available at %v", service.writer.Endpoint()),
+		Checker:          service.writerHealthChecker,
+	}
+}
+
+func (service *HealthService) writerHealthChecker() (string, error) {
+	if err := service.writer.GTG(); err != nil {
+		return "PAC annotations writer is not healthy", err
+	}
+	return "PAC annotations writer is healthy", nil
 }
 
 func (service *HealthService) publishHealthChecker() (string, error) {

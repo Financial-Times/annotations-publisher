@@ -74,16 +74,33 @@ func main() {
 		EnvVar: "API_YML",
 	})
 
+	saveEndpoint := app.String(cli.StringOpt{
+		Name:   "annotations-save-endpoint",
+		Desc:   "Endpoint to save annotations to PAC",
+		Value:  "http://draft-annotations-api:8080/drafts/content/%v/annotations",
+		EnvVar: "ANNOTATIONS_SAVE_ENDPOINT",
+	})
+
+	saveGTGEndpoint := app.String(cli.StringOpt{
+		Name:   "annotations-save-gtg-endpoint",
+		Desc:   "GTG Endpoint for the service which saves PAC annotations (usually draft-annotations-api)",
+		Value:  "http://draft-annotations-api:8080/__gtg",
+		EnvVar: "ANNOTATIONS_SAVE_GTG_ENDPOINT",
+	})
+
 	log.SetLevel(log.InfoLevel)
 	log.Infof("[Startup] %v is starting", *appSystemCode)
 
 	app.Action = func() {
 		log.Infof("System code: %s, App Name: %s, Port: %s", *appSystemCode, *appName, *port)
 
-		publisher := annotations.NewPublisher(*originSystemID, *annotationsEndpoint, *annotationsAuth, *annotationsGTGEndpoint)
-		healthService := health.NewHealthService(*appSystemCode, *appName, appDescription, publisher)
+		client := &http.Client{}
+		publisher := annotations.NewPublisher(client, *originSystemID, *annotationsEndpoint, *annotationsAuth, *annotationsGTGEndpoint)
+		writer := annotations.NewWriter(client, *saveEndpoint, *saveGTGEndpoint)
 
-		serveEndpoints(*port, apiYml, publisher, healthService)
+		healthService := health.NewHealthService(*appSystemCode, *appName, appDescription, publisher, writer)
+
+		serveEndpoints(*port, apiYml, writer, publisher, healthService)
 	}
 
 	err := app.Run(os.Args)
@@ -93,9 +110,9 @@ func main() {
 	}
 }
 
-func serveEndpoints(port string, apiYml *string, publisher annotations.Publisher, healthService *health.HealthService) {
+func serveEndpoints(port string, apiYml *string, writer annotations.Writer, publisher annotations.Publisher, healthService *health.HealthService) {
 	r := vestigo.NewRouter()
-	r.Post("/drafts/content/:uuid/annotations/publish", resources.Publish(publisher))
+	r.Post("/drafts/content/:uuid/annotations/publish", resources.Publish(writer, publisher))
 
 	var monitoringRouter http.Handler = r
 	monitoringRouter = httphandlers.TransactionAwareRequestLoggingHandler(log.StandardLogger(), monitoringRouter)

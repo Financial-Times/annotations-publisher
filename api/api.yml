@@ -71,8 +71,13 @@ paths:
           examples:
             application/json:
               message: Please specify a valid uuid in the request
+        500:
+          description: An authentication failure occurred while attempting to publish to UPP. This requires a configuration change to the service, followed by a restart, and is therefore not a client error (401).
+          examples:
+            application/json:
+              message: Publish authentication is invalid
         503:
-          description: A failure occurred while attempting to publish to UPP. Please check the `/__health` endpoint and try again.
+          description: A failure occurred while attempting to publish to UPP, or while attempting to save to PAC. Please check the `/__health` endpoint and try again.
           examples:
             application/json:
               message: Failed to publish to UPP
