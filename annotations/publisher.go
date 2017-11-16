@@ -9,6 +9,10 @@ import (
 	"strings"
 )
 
+const (
+	userAgent = "PAC annotations-publisher"
+)
+
 // ErrInvalidAuthentication occurs when UPP responds with a 401
 var ErrInvalidAuthentication = errors.New("Publish authentication is invalid")
 
@@ -89,7 +93,7 @@ func (a *uppPublisher) GTG() error {
 		return err
 	}
 
-	req.Header.Add("User-Agent", "PAC annotations-publisher")
+	req.Header.Add("User-Agent", userAgent)
 	resp, err := a.client.Do(req)
 	if err != nil {
 		return err

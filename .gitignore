@@ -1,3 +1,6 @@
 /annotations-publisher
+/*.exe
 /vendor/*
 !/vendor/vendor.json
+
+.idea/
