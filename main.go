@@ -42,6 +42,13 @@ func main() {
 		EnvVar: "APP_PORT",
 	})
 
+	draftsEndpoint := app.String(cli.StringOpt{
+		Name:   "draft-annotations-rw-endpoint",
+		Desc:   "Endpoint for saving/reading draft annotations",
+		Value:  "http://draft-annotations-api:8080/drafts/content/%v/annotations",
+		EnvVar: "DRAFT_ANNOTATIONS_RW_ENDPOINT",
+	})
+
 	writerEndpoint := app.String(cli.StringOpt{
 		Name:   "published-annotations-rw-endpoint",
 		Value:  "http://generic-rw-aurora:8080/published/content/%s/annotations",
@@ -93,7 +100,7 @@ func main() {
 			log.WithError(err).Error("could not construct writer")
 			return
 		}
-		publisher := annotations.NewPublisher(*originSystemID, *annotationsEndpoint, *annotationsAuth, *annotationsGTGEndpoint)
+		publisher := annotations.NewPublisher(*originSystemID, *draftsEndpoint, *annotationsEndpoint, *annotationsAuth, *annotationsGTGEndpoint)
 		healthService := health.NewHealthService(*appSystemCode, *appName, appDescription, publisher, writer)
 
 		serveEndpoints(*port, apiYml, publisher, healthService)

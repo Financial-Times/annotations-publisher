@@ -4,21 +4,25 @@ import (
 	"fmt"
 	"net/http"
 
-	"github.com/Financial-Times/annotations-publisher/annotations"
 	fthealth "github.com/Financial-Times/go-fthealth/v1_1"
 	"github.com/Financial-Times/service-status-go/gtg"
 )
+
+type ExternalService interface {
+	Endpoint() string
+	GTG() error
+}
 
 // HealthService runs application health checks, and provides the /__health http endpoint
 type HealthService struct {
 	fthealth.HealthCheck
 	gtgChecks []fthealth.Check
-	publisher annotations.Publisher
-	writer annotations.PublishedAnnotationsWriter
+	publisher ExternalService
+	writer    ExternalService
 }
 
 // NewHealthService returns a new HealthService
-func NewHealthService(appSystemCode string, appName string, appDescription string, publisher annotations.Publisher, writer annotations.PublishedAnnotationsWriter) *HealthService {
+func NewHealthService(appSystemCode string, appName string, appDescription string, publisher ExternalService, writer ExternalService) *HealthService {
 	service := &HealthService{publisher: publisher, writer: writer}
 	service.SystemCode = appSystemCode
 	service.Name = appName

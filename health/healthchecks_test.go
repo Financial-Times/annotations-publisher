@@ -10,7 +10,7 @@ import (
 )
 
 func TestPublishedAnnotationsWriterCheck(t *testing.T) {
-	mockGtg := &mockPublisher{mockGtg{gtg: nil, endpoint: "/__gtg"}}
+	mockGtg := &mockGtg{gtg: nil, endpoint: "/__gtg"}
 	health := NewHealthService("appSystemCode", "appName", "appDescription", mockGtg, mockGtg)
 
 	check := health.writerCheck()
@@ -28,7 +28,7 @@ func TestPublishedAnnotationsWriterCheck(t *testing.T) {
 
 func TestPublishedAnnotationsWriterCheckFails(t *testing.T) {
 	mockUnhealthy := &mockGtg{gtg: errors.New("eek"), endpoint: "/__gtg"}
-	health := NewHealthService("appSystemCode", "appName", "appDescription", &mockPublisher{}, mockUnhealthy)
+	health := NewHealthService("appSystemCode", "appName", "appDescription", &mockGtg{}, mockUnhealthy)
 
 	msg, err := health.writerCheck().Checker()
 	assert.Equal(t, "PAC annotations writer is not healthy", msg)
@@ -36,7 +36,7 @@ func TestPublishedAnnotationsWriterCheckFails(t *testing.T) {
 }
 
 func TestPublishCheck(t *testing.T) {
-	mockGtg := &mockPublisher{mockGtg{gtg: nil, endpoint: "/__gtg"}}
+	mockGtg := &mockGtg{gtg: nil, endpoint: "/__gtg"}
 	health := NewHealthService("appSystemCode", "appName", "appDescription", mockGtg, mockGtg)
 
 	check := health.publishCheck()
@@ -53,7 +53,7 @@ func TestPublishCheck(t *testing.T) {
 }
 
 func TestPublishCheckFails(t *testing.T) {
-	mockPublisher := &mockPublisher{mockGtg{gtg: errors.New("eek"), endpoint: "/__gtg"}}
+	mockPublisher := &mockGtg{gtg: errors.New("eek"), endpoint: "/__gtg"}
 	health := NewHealthService("appSystemCode", "appName", "appDescription", mockPublisher, &mockGtg{})
 
 	msg, err := health.publishCheck().Checker()
@@ -62,7 +62,7 @@ func TestPublishCheckFails(t *testing.T) {
 }
 
 func TestHealthServiceHandler(t *testing.T) {
-	mockGtg := &mockPublisher{mockGtg{gtg: nil, endpoint: "/__gtg"}}
+	mockGtg := &mockGtg{gtg: nil, endpoint: "/__gtg"}
 	health := NewHealthService("appSystemCode", "appName", "appDescription", mockGtg, mockGtg)
 
 	handler := health.HealthCheckHandleFunc()
@@ -76,7 +76,7 @@ func TestHealthServiceHandler(t *testing.T) {
 }
 
 func TestGTGAllGood(t *testing.T) {
-	health := NewHealthService("appSystemCode", "appName", "appDescription", &mockPublisher{}, &mockGtg{})
+	health := NewHealthService("appSystemCode", "appName", "appDescription", &mockGtg{}, &mockGtg{})
 
 	gtg := health.GTG()
 	assert.True(t, gtg.GoodToGo)
@@ -84,7 +84,7 @@ func TestGTGAllGood(t *testing.T) {
 }
 
 func TestGTGEvenThoughUPPIsUnhealthy(t *testing.T) {
-	mockPublisher := &mockPublisher{mockGtg{gtg: errors.New("eek"), endpoint: "/__gtg"}}
+	mockPublisher := &mockGtg{gtg: errors.New("eek"), endpoint: "/__gtg"}
 	health := NewHealthService("appSystemCode", "appName", "appDescription", mockPublisher, &mockGtg{})
 
 	gtg := health.GTG()
@@ -93,7 +93,7 @@ func TestGTGEvenThoughUPPIsUnhealthy(t *testing.T) {
 }
 
 func TestGTGFailsWhenWriterIsUnhealthy(t *testing.T) {
-	mockPublisher := &mockPublisher{}
+	mockPublisher := &mockGtg{}
 	mockUnhealthy := &mockGtg{gtg: errors.New("eek"), endpoint: "/__gtg"}
 	health := NewHealthService("appSystemCode", "appName", "appDescription", mockPublisher, mockUnhealthy)
 
@@ -113,12 +113,4 @@ func (m *mockGtg) GTG() error {
 
 func (m *mockGtg) Endpoint() string {
 	return m.endpoint
-}
-
-type mockPublisher struct {
-	mockGtg
-}
-
-func (m *mockPublisher) Publish(uuid string, tid string, body map[string]interface{}) error {
-	return nil
 }

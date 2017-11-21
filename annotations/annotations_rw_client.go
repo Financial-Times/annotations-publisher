@@ -5,12 +5,12 @@ import (
 	"net/http"
 	"net/url"
 
+	"github.com/Financial-Times/annotations-publisher/health"
 	status "github.com/Financial-Times/service-status-go/httphandlers"
 )
 
 type PublishedAnnotationsWriter interface {
-	GTG() error
-	Endpoint() string
+	health.ExternalService
 }
 
 type genericRWClient struct {
