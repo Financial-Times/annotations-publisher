@@ -59,12 +59,17 @@ func mockGtgServer(t *testing.T, gtgOk bool) *httptest.Server {
 	return httptest.NewServer(r)
 }
 
-func mockGetAnnotations(t *testing.T, expectedTid string, annotations map[string][]Annotation) http.HandlerFunc {
+func mockGetAnnotations(t *testing.T, expectedTid string, annotations map[string][]Annotation, responseStatus int) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		assert.Equal(t, expectedTid, r.Header.Get(tid.TransactionIDHeader), "transaction id")
 
 		uuid := vestigo.Param(r, "uuid")
-		if response, found := annotations[uuid]; found {
+		response, found := annotations[uuid]
+		if responseStatus != http.StatusOK {
+			w.WriteHeader(responseStatus)
+			msg := map[string]string{"message": "whatever"}
+			json.NewEncoder(w).Encode(&msg)
+		} else if found {
 			w.WriteHeader(http.StatusOK)
 			json.NewEncoder(w).Encode(&response)
 		} else {
@@ -90,7 +95,7 @@ func TestGetAnnotations(t *testing.T) {
 		testUuid: expectedAnnotations,
 	}
 	r := vestigo.NewRouter()
-	r.Get("/drafts/content/:uuid/annotations", mockGetAnnotations(t, testTid, testAnnotations))
+	r.Get("/drafts/content/:uuid/annotations", mockGetAnnotations(t, testTid, testAnnotations, http.StatusOK))
 
 	server := httptest.NewServer(r)
 	defer server.Close()
@@ -107,19 +112,9 @@ func TestGetAnnotations(t *testing.T) {
 func TestGetAnnotationsNotFound(t *testing.T) {
 	testTid := "tid_test"
 	testCtx := tid.TransactionAwareContext(context.Background(), testTid)
-	expectedAnnotations := []Annotation{
-		{
-			Predicate: "foo",
-			ConceptId: "bar",
-		},
-	}
-
-	testAnnotations := map[string][]Annotation{
-		uuid.New(): expectedAnnotations,
-	}
 
 	r := vestigo.NewRouter()
-	r.Get("/drafts/content/:uuid/annotations", mockGetAnnotations(t, testTid, testAnnotations))
+	r.Get("/drafts/content/:uuid/annotations", mockGetAnnotations(t, testTid, map[string][]Annotation{}, http.StatusNotFound))
 
 	server := httptest.NewServer(r)
 	defer server.Close()
@@ -131,7 +126,24 @@ func TestGetAnnotationsNotFound(t *testing.T) {
 	assert.EqualError(t, err, ErrDraftNotFound.Error())
 }
 
-func mockSaveAnnotations(t *testing.T, expectedTid string, expectedUuid string, expectedResponse int) http.HandlerFunc {
+func TestGetAnnotationsFailure(t *testing.T) {
+	testTid := "tid_test"
+	testCtx := tid.TransactionAwareContext(context.Background(), testTid)
+
+	r := vestigo.NewRouter()
+	r.Get("/drafts/content/:uuid/annotations", mockGetAnnotations(t, testTid, map[string][]Annotation{}, http.StatusInternalServerError))
+
+	server := httptest.NewServer(r)
+	defer server.Close()
+
+	client, err := NewAnnotationsClient(server.URL + "/drafts/content/%s/annotations")
+	require.NoError(t, err)
+
+	_, err = client.GetAnnotations(testCtx, uuid.New())
+	assert.Contains(t, err.Error(), "returned a 500 status code")
+}
+
+func mockSaveAnnotations(t *testing.T, expectedTid string, expectedUuid string, expectedResponse int, respondWithBody bool) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		assert.Equal(t, expectedTid, r.Header.Get(tid.TransactionIDHeader), "transaction id")
 
@@ -155,7 +167,9 @@ func mockSaveAnnotations(t *testing.T, expectedTid string, expectedUuid string, 
 			fallthrough
 		case http.StatusCreated:
 			w.WriteHeader(expectedResponse)
-			json.NewEncoder(w).Encode(&body)
+			if respondWithBody {
+				json.NewEncoder(w).Encode(&body)
+			}
 		default:
 			w.WriteHeader(http.StatusInternalServerError)
 			msg := map[string]string{"message": "test error"}
@@ -176,7 +190,7 @@ func TestSaveAnnotations(t *testing.T) {
 	}
 
 	r := vestigo.NewRouter()
-	r.Put("/drafts/content/:uuid/annotations", mockSaveAnnotations(t, testTid, testUuid, http.StatusOK))
+	r.Put("/drafts/content/:uuid/annotations", mockSaveAnnotations(t, testTid, testUuid, http.StatusOK, true))
 
 	server := httptest.NewServer(r)
 	defer server.Close()
@@ -202,7 +216,7 @@ func TestSaveAnnotationsCreatedStatus(t *testing.T) {
 	}
 
 	r := vestigo.NewRouter()
-	r.Put("/drafts/content/:uuid/annotations", mockSaveAnnotations(t, testTid, testUuid, http.StatusCreated))
+	r.Put("/drafts/content/:uuid/annotations", mockSaveAnnotations(t, testTid, testUuid, http.StatusCreated, true))
 
 	server := httptest.NewServer(r)
 	defer server.Close()
@@ -228,7 +242,7 @@ func TestSaveAnnotationsError(t *testing.T) {
 	}
 
 	r := vestigo.NewRouter()
-	r.Put("/drafts/content/:uuid/annotations", mockSaveAnnotations(t, testTid, testUuid, http.StatusInternalServerError))
+	r.Put("/drafts/content/:uuid/annotations", mockSaveAnnotations(t, testTid, testUuid, http.StatusInternalServerError, true))
 
 	server := httptest.NewServer(r)
 	defer server.Close()
@@ -239,4 +253,30 @@ func TestSaveAnnotationsError(t *testing.T) {
 
 	_, err = client.SaveAnnotations(testCtx, testUuid, testAnnotations)
 	assert.EqualError(t, err, fmt.Sprintf("Write to %s returned a 500 status code", fmt.Sprintf(annotationsUrl, testUuid)))
+}
+
+func TestSaveAnnotationsWriterReturnsNoBody(t *testing.T) {
+	testTid := "tid_test"
+	testCtx := tid.TransactionAwareContext(context.Background(), testTid)
+	testUuid := uuid.New()
+	testAnnotations := []Annotation{
+		{
+			Predicate: "foo",
+			ConceptId: "bar",
+		},
+	}
+
+	r := vestigo.NewRouter()
+	r.Put("/drafts/content/:uuid/annotations", mockSaveAnnotations(t, testTid, testUuid, http.StatusOK, false))
+
+	server := httptest.NewServer(r)
+	defer server.Close()
+
+	client, err := NewAnnotationsClient(server.URL + "/drafts/content/%s/annotations")
+	require.NoError(t, err)
+
+	actual, err := client.SaveAnnotations(testCtx, testUuid, testAnnotations)
+	assert.NoError(t, err)
+
+	assert.Equal(t, testAnnotations, actual)
 }

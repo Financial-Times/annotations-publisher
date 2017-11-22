@@ -112,6 +112,26 @@ func TestPublishAuthenticationInvalid(t *testing.T) {
 	pub.AssertExpectations(t)
 }
 
+func TestPublishFromStore(t *testing.T) {
+	r := vestigo.NewRouter()
+	pub := &mockPublisher{}
+	// unfortunately, mock.AnythingOfType doesn't seem to work with interfaces
+	pub.On("PublishFromStore", mock.Anything, "a-valid-uuid").Return(nil)
+	r.Post("/drafts/content/:uuid/annotations/publish", Publish(pub))
+
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest("POST", "/drafts/content/a-valid-uuid/annotations/publish?fromStore=true", nil)
+
+	r.ServeHTTP(w, req)
+
+	resp, err := marshal(w.Body)
+	require.NoError(t, err)
+	assert.Equal(t, http.StatusAccepted, w.Code)
+	assert.Equal(t, "Publish accepted", resp["message"])
+
+	pub.AssertExpectations(t)
+}
+
 func TestPublishFromStoreNotFound(t *testing.T) {
 	r := vestigo.NewRouter()
 	pub := &mockPublisher{}

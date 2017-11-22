@@ -41,7 +41,7 @@ func (m *mockAnnotationsClient) Endpoint() string {
 
 func TestPublish(t *testing.T) {
 	uuid := uuid.New()
-	server := startMockServer(t, uuid, true, true)
+	server := startMockServer(t, context.Background(), uuid, true, true)
 	defer server.Close()
 
 	draftAnnotationsClient := &mockAnnotationsClient{}
@@ -50,6 +50,9 @@ func TestPublish(t *testing.T) {
 
 	err := publisher.Publish(tid.TransactionAwareContext(context.Background(), "tid"), uuid, make(map[string]interface{}))
 	assert.NoError(t, err)
+
+	draftAnnotationsClient.AssertExpectations(t)
+	publishedAnnotationsClient.AssertExpectations(t)
 }
 
 func TestPublishFailsToMarshalBodyToJSON(t *testing.T) {
@@ -61,6 +64,9 @@ func TestPublishFailsToMarshalBodyToJSON(t *testing.T) {
 	body["dodgy!"] = func() {}
 	err := publisher.Publish(tid.TransactionAwareContext(context.Background(), "tid"), "a-valid-uuid", body)
 	assert.EqualError(t, err, "json: unsupported type: func()")
+
+	draftAnnotationsClient.AssertExpectations(t)
+	publishedAnnotationsClient.AssertExpectations(t)
 }
 
 func TestPublishFailsInvalidURL(t *testing.T) {
@@ -71,6 +77,9 @@ func TestPublishFailsInvalidURL(t *testing.T) {
 	body := make(map[string]interface{})
 	err := publisher.Publish(tid.TransactionAwareContext(context.Background(), "tid"), "a-valid-uuid", body)
 	assert.EqualError(t, err, "parse :: missing protocol scheme")
+
+	draftAnnotationsClient.AssertExpectations(t)
+	publishedAnnotationsClient.AssertExpectations(t)
 }
 
 func TestPublishRequestFailsServerUnavailable(t *testing.T) {
@@ -81,11 +90,14 @@ func TestPublishRequestFailsServerUnavailable(t *testing.T) {
 	body := make(map[string]interface{})
 	err := publisher.Publish(tid.TransactionAwareContext(context.Background(), "tid"), "a-valid-uuid", body)
 	assert.EqualError(t, err, "Post /publish: unsupported protocol scheme \"\"")
+
+	draftAnnotationsClient.AssertExpectations(t)
+	publishedAnnotationsClient.AssertExpectations(t)
 }
 
 func TestPublishRequestUnsuccessful(t *testing.T) {
 	uuid := uuid.New()
-	server := startMockServer(t, uuid, false, true)
+	server := startMockServer(t, context.Background(), uuid, false, true)
 	defer server.Close()
 
 	draftAnnotationsClient := &mockAnnotationsClient{}
@@ -95,6 +107,9 @@ func TestPublishRequestUnsuccessful(t *testing.T) {
 	body := make(map[string]interface{})
 	err := publisher.Publish(tid.TransactionAwareContext(context.Background(), "tid"), uuid, body)
 	assert.EqualError(t, err, fmt.Sprintf("Publish to %v/notify returned a 503 status code", server.URL))
+
+	draftAnnotationsClient.AssertExpectations(t)
+	publishedAnnotationsClient.AssertExpectations(t)
 }
 
 func TestPublisherEndpoint(t *testing.T) {
@@ -102,6 +117,9 @@ func TestPublisherEndpoint(t *testing.T) {
 	publishedAnnotationsClient := &mockAnnotationsClient{}
 	publisher := NewPublisher("originSystemID", draftAnnotationsClient, publishedAnnotationsClient,"/publish", "user:pass", "/__gtg")
 	assert.Equal(t, "/publish", publisher.Endpoint())
+
+	draftAnnotationsClient.AssertExpectations(t)
+	publishedAnnotationsClient.AssertExpectations(t)
 }
 
 func TestPublisherAuthIsInvalid(t *testing.T) {
@@ -118,11 +136,14 @@ func TestPublisherAuthIsInvalid(t *testing.T) {
 
 	err = publisher.Publish(tid.TransactionAwareContext(context.Background(), "tid"), "a-valid-uuid", body)
 	assert.EqualError(t, err, "Invalid auth configured")
+
+	draftAnnotationsClient.AssertExpectations(t)
+	publishedAnnotationsClient.AssertExpectations(t)
 }
 
 func TestPublisherAuthenticationFails(t *testing.T) {
 	uuid := uuid.New()
-	server := startMockServer(t, uuid, false, true)
+	server := startMockServer(t,context.Background(), uuid, false, true)
 	defer server.Close()
 
 	draftAnnotationsClient := &mockAnnotationsClient{}
@@ -132,10 +153,13 @@ func TestPublisherAuthenticationFails(t *testing.T) {
 	body := make(map[string]interface{})
 	err := publisher.Publish(tid.TransactionAwareContext(context.Background(), "tid"), "a-valid-uuid", body)
 	assert.EqualError(t, err, "publish authentication is invalid")
+
+	draftAnnotationsClient.AssertExpectations(t)
+	publishedAnnotationsClient.AssertExpectations(t)
 }
 
 func TestPublisherGTG(t *testing.T) {
-	server := startMockServer(t, "", true, true)
+	server := startMockServer(t, context.Background(),"", true, true)
 	defer server.Close()
 
 	draftAnnotationsClient := &mockAnnotationsClient{}
@@ -146,7 +170,7 @@ func TestPublisherGTG(t *testing.T) {
 }
 
 func TestPublisherGTGFails(t *testing.T) {
-	server := startMockServer(t, "", true, false)
+	server := startMockServer(t, context.Background(),"", true, false)
 	defer server.Close()
 
 	draftAnnotationsClient := &mockAnnotationsClient{}
@@ -172,6 +196,35 @@ func TestPublisherGTGInvalidURL(t *testing.T) {
 	assert.EqualError(t, err, "parse :: missing protocol scheme")
 }
 
+func TestPublishFromStore(t *testing.T) {
+	uuid := uuid.New()
+	testAnnotations := []Annotation{
+		{
+			Predicate: "foo",
+			ConceptId: "bar",
+		},
+	}
+
+	draftAnnotationsClient := &mockAnnotationsClient{}
+	draftAnnotationsClient.On("GetAnnotations", mock.Anything, uuid).Return(testAnnotations, nil)
+	draftAnnotationsClient.On("SaveAnnotations", mock.Anything, uuid, testAnnotations).Return(testAnnotations, nil)
+
+	publishedAnnotationsClient := &mockAnnotationsClient{}
+	publishedAnnotationsClient.On("SaveAnnotations", mock.Anything, uuid, testAnnotations).Return(testAnnotations, nil)
+
+	ctx := tid.TransactionAwareContext(context.Background(), "tid_test")
+	server := startMockServer(t, ctx, uuid, true, true)
+	defer server.Close()
+
+	publisher := NewPublisher("originSystemID", draftAnnotationsClient, publishedAnnotationsClient, server.URL + "/notify", "user:pass", "http://www.example.com/__gtg")
+
+	err := publisher.PublishFromStore(ctx, uuid)
+	assert.NoError(t, err)
+
+	draftAnnotationsClient.AssertExpectations(t)
+	publishedAnnotationsClient.AssertExpectations(t)
+}
+
 func TestPublishFromStoreNotFound(t *testing.T) {
 	uuid := uuid.New()
 
@@ -183,6 +236,9 @@ func TestPublishFromStoreNotFound(t *testing.T) {
 	ctx := tid.TransactionAwareContext(context.Background(), "tid_test")
 	err := publisher.PublishFromStore(ctx, uuid)
 	assert.EqualError(t, err, ErrDraftNotFound.Error())
+
+	draftAnnotationsClient.AssertExpectations(t)
+	publishedAnnotationsClient.AssertExpectations(t)
 }
 
 func TestPublishFromStoreGetDraftsFails(t *testing.T) {
@@ -197,9 +253,100 @@ func TestPublishFromStoreGetDraftsFails(t *testing.T) {
 	ctx := tid.TransactionAwareContext(context.Background(), "tid_test")
 	err := publisher.PublishFromStore(ctx, uuid)
 	assert.EqualError(t, err, msg)
+
+	draftAnnotationsClient.AssertExpectations(t)
+	publishedAnnotationsClient.AssertExpectations(t)
 }
 
-func startMockServer(t *testing.T, uuid string, publishOk bool, gtgOk bool) *httptest.Server {
+func TestPublishFromStoreSaveDraftFails(t *testing.T) {
+	msg := "test error"
+	uuid := uuid.New()
+	testAnnotations := []Annotation{
+		{
+			Predicate: "foo",
+			ConceptId: "bar",
+		},
+	}
+
+	draftAnnotationsClient := &mockAnnotationsClient{}
+	draftAnnotationsClient.On("GetAnnotations", mock.Anything, uuid).Return(testAnnotations, nil)
+	draftAnnotationsClient.On("SaveAnnotations", mock.Anything, uuid, testAnnotations).Return([]Annotation{}, errors.New(msg))
+
+	publishedAnnotationsClient := &mockAnnotationsClient{}
+
+	ctx := tid.TransactionAwareContext(context.Background(), "tid_test")
+	server := startMockServer(t, ctx, uuid, true, true)
+	defer server.Close()
+
+	publisher := NewPublisher("originSystemID", draftAnnotationsClient, publishedAnnotationsClient, server.URL + "/notify", "user:pass", "http://www.example.com/__gtg")
+
+	err := publisher.PublishFromStore(ctx, uuid)
+	assert.EqualError(t, err, msg)
+
+	draftAnnotationsClient.AssertExpectations(t)
+	publishedAnnotationsClient.AssertExpectations(t)
+}
+
+func TestPublishFromStoreSavePublishedFails(t *testing.T) {
+	msg := "test error"
+	uuid := uuid.New()
+	testAnnotations := []Annotation{
+		{
+			Predicate: "foo",
+			ConceptId: "bar",
+		},
+	}
+
+	draftAnnotationsClient := &mockAnnotationsClient{}
+	draftAnnotationsClient.On("GetAnnotations", mock.Anything, uuid).Return(testAnnotations, nil)
+	draftAnnotationsClient.On("SaveAnnotations", mock.Anything, uuid, testAnnotations).Return(testAnnotations, nil)
+
+	publishedAnnotationsClient := &mockAnnotationsClient{}
+	publishedAnnotationsClient.On("SaveAnnotations", mock.Anything, uuid, testAnnotations).Return([]Annotation{}, errors.New(msg))
+
+	ctx := tid.TransactionAwareContext(context.Background(), "tid_test")
+	server := startMockServer(t, ctx, uuid, true, true)
+	defer server.Close()
+
+	publisher := NewPublisher("originSystemID", draftAnnotationsClient, publishedAnnotationsClient, server.URL + "/notify", "user:pass", "http://www.example.com/__gtg")
+
+	err := publisher.PublishFromStore(ctx, uuid)
+	assert.EqualError(t, err, msg)
+
+	draftAnnotationsClient.AssertExpectations(t)
+	publishedAnnotationsClient.AssertExpectations(t)
+}
+
+func TestPublishFromStorePublishFails(t *testing.T) {
+	uuid := uuid.New()
+	testAnnotations := []Annotation{
+		{
+			Predicate: "foo",
+			ConceptId: "bar",
+		},
+	}
+
+	draftAnnotationsClient := &mockAnnotationsClient{}
+	draftAnnotationsClient.On("GetAnnotations", mock.Anything, uuid).Return(testAnnotations, nil)
+	draftAnnotationsClient.On("SaveAnnotations", mock.Anything, uuid, testAnnotations).Return(testAnnotations, nil)
+
+	publishedAnnotationsClient := &mockAnnotationsClient{}
+	publishedAnnotationsClient.On("SaveAnnotations", mock.Anything, uuid, testAnnotations).Return(testAnnotations, nil)
+
+	ctx := tid.TransactionAwareContext(context.Background(), "tid_test")
+	server := startMockServer(t, ctx, uuid, false, true)
+	defer server.Close()
+
+	publisher := NewPublisher("originSystemID", draftAnnotationsClient, publishedAnnotationsClient, server.URL + "/notify", "user:pass", "http://www.example.com/__gtg")
+
+	err := publisher.PublishFromStore(ctx, uuid)
+	assert.EqualError(t, err, fmt.Sprintf("Publish to %v/notify returned a 503 status code", server.URL))
+
+	draftAnnotationsClient.AssertExpectations(t)
+	publishedAnnotationsClient.AssertExpectations(t)
+}
+
+func startMockServer(t *testing.T, ctx context.Context, uuid string, publishOk bool, gtgOk bool) *httptest.Server {
 	r := vestigo.NewRouter()
 	r.Get("/__gtg", func(w http.ResponseWriter, r *http.Request) {
 		userAgent := r.Header.Get("User-Agent")
@@ -222,8 +369,12 @@ func startMockServer(t *testing.T, uuid string, publishOk bool, gtgOk bool) *htt
 		originSystemID := r.Header.Get("X-Origin-System-Id")
 		assert.Equal(t, "originSystemID", originSystemID)
 
-		tid := r.Header.Get("X-Request-Id")
-		assert.Equal(t, "tid", tid)
+		txid := r.Header.Get("X-Request-Id")
+		if expectedTid, err := tid.GetTransactionIDFromContext(ctx); err == nil && expectedTid != "" {
+			assert.Equal(t, expectedTid, txid)
+		} else {
+			assert.Equal(t, "tid", txid)
+		}
 
 		user, pass, ok := r.BasicAuth()
 		assert.True(t, ok)
