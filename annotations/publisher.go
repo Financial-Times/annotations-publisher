@@ -27,7 +27,7 @@ var (
 // Publisher provides an interface to publish annotations to UPP
 type Publisher interface {
 	health.ExternalService
-	Publish(uuid string, tid string, body map[string]interface{}) error
+	Publish(ctx context.Context, uuid string, body map[string]interface{}) error
 	PublishFromStore(ctx context.Context, uuid string) error
 }
 
@@ -42,12 +42,16 @@ type uppPublisher struct {
 }
 
 // NewPublisher returns a new Publisher instance
-func NewPublisher(originSystemID string, draftAnnotationsClient AnnotationsClient, publishEndpoint string, publishAuth string, gtgEndpoint string) Publisher {
-	return &uppPublisher{client: &http.Client{}, originSystemID: originSystemID, draftAnnotationsClient: draftAnnotationsClient, publishedAnnotationsClient: nil, publishEndpoint: publishEndpoint, publishAuth: publishAuth, gtgEndpoint: gtgEndpoint}
+func NewPublisher(originSystemID string, draftAnnotationsClient AnnotationsClient, publishedAnnotationsClient AnnotationsClient, publishEndpoint string, publishAuth string, gtgEndpoint string) Publisher {
+	log.WithField("endpoint", draftAnnotationsClient.Endpoint()).Info("draft annotations r/w endpoint")
+	log.WithField("endpoint", publishedAnnotationsClient.Endpoint()).Info("published annotations r/w endpoint")
+	log.WithField("endpoint", publishEndpoint).Info("publish endpoint")
+	return &uppPublisher{client: &http.Client{}, originSystemID: originSystemID, draftAnnotationsClient: draftAnnotationsClient, publishedAnnotationsClient: publishedAnnotationsClient, publishEndpoint: publishEndpoint, publishAuth: publishAuth, gtgEndpoint: gtgEndpoint}
 }
 
 // Publish sends the annotations to UPP via the configured publishEndpoint. Requests contain X-Origin-System-Id and X-Request-Id and a User-Agent as provided.
-func (a *uppPublisher) Publish(uuid string, tid string, body map[string]interface{}) error {
+func (a *uppPublisher) Publish(ctx context.Context, uuid string, body map[string]interface{}) error {
+	txid, _ := tid.GetTransactionIDFromContext(ctx)
 	body["uuid"] = uuid
 	bodyJSON, err := json.Marshal(body)
 	if err != nil {
@@ -66,7 +70,7 @@ func (a *uppPublisher) Publish(uuid string, tid string, body map[string]interfac
 
 	req.Header.Add("User-Agent", userAgent)
 	req.Header.Add("X-Origin-System-Id", a.originSystemID)
-	req.Header.Add("X-Request-Id", tid)
+	req.Header.Add("X-Request-Id", txid)
 	req.Header.Add("Content-Type", "application/json")
 
 	resp, err := a.client.Do(req)
@@ -125,12 +129,29 @@ func (a *uppPublisher) Endpoint() string {
 
 func (a *uppPublisher) PublishFromStore(ctx context.Context, uuid string) error {
 	txid, _ := tid.GetTransactionIDFromContext(ctx)
+	mlog := log.WithField("transaction_id", txid)
 
-	draft, err := a.draftAnnotationsClient.GetAnnotations(ctx, uuid)
-	if err == nil {
-		log.WithField("transaction_id", txid).Info(draft)
-		err = errors.New("not implemented")
+	var draft []Annotation
+	var published []Annotation
+	var err error
+	if draft, err = a.draftAnnotationsClient.GetAnnotations(ctx, uuid); err == nil {
+		published, err = a.draftAnnotationsClient.SaveAnnotations(ctx, uuid, draft)
 	}
+	if err != nil {
+		mlog.WithError(err).Error("r/w to draft annotations failed")
+		return err
+	}
+
+	_, err = a.publishedAnnotationsClient.SaveAnnotations(ctx, uuid, published)
+	if err != nil {
+		mlog.WithError(err).Error("r/w to published annotations failed")
+		return err
+	}
+
+	uppPublishBody := map[string]interface{}{
+		"annotations": published,
+	}
+	err = a.Publish(ctx, uuid, uppPublishBody)
 
 	return err
 }

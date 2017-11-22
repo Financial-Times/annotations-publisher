@@ -20,7 +20,7 @@ import (
 func TestPublish(t *testing.T) {
 	r := vestigo.NewRouter()
 	pub := &mockPublisher{}
-	pub.On("Publish", "a-valid-uuid", mock.AnythingOfType("string"), mock.Anything).Return(nil)
+	pub.On("Publish", mock.Anything, "a-valid-uuid", mock.Anything).Return(nil)
 
 	r.Post("/drafts/content/:uuid/annotations/publish", Publish(pub))
 
@@ -75,7 +75,7 @@ func TestRequestHasNoUUID(t *testing.T) {
 func TestPublishFailed(t *testing.T) {
 	r := vestigo.NewRouter()
 	pub := &mockPublisher{}
-	pub.On("Publish", "a-valid-uuid", mock.AnythingOfType("string"), mock.Anything).Return(errors.New("eek"))
+	pub.On("Publish", mock.Anything, "a-valid-uuid", mock.Anything).Return(errors.New("eek"))
 
 	r.Post("/drafts/content/:uuid/annotations/publish", Publish(pub))
 
@@ -95,7 +95,7 @@ func TestPublishFailed(t *testing.T) {
 func TestPublishAuthenticationInvalid(t *testing.T) {
 	r := vestigo.NewRouter()
 	pub := &mockPublisher{}
-	pub.On("Publish", "a-valid-uuid", mock.AnythingOfType("string"), mock.Anything).Return(annotations.ErrInvalidAuthentication)
+	pub.On("Publish", mock.Anything, "a-valid-uuid", mock.Anything).Return(annotations.ErrInvalidAuthentication)
 
 	r.Post("/drafts/content/:uuid/annotations/publish", Publish(pub))
 
@@ -147,7 +147,7 @@ func TestPublishFromStoreFails(t *testing.T) {
 	resp, err := marshal(w.Body)
 	require.NoError(t, err)
 	assert.Equal(t, http.StatusInternalServerError, w.Code)
-	assert.Equal(t, "Unable to read draft annotations", resp["message"])
+	assert.Equal(t, "Unable to publish annotations from store", resp["message"])
 
 	pub.AssertExpectations(t)
 }
@@ -171,8 +171,8 @@ func (m *mockPublisher) Endpoint() string {
 	return ""
 }
 
-func (m *mockPublisher) Publish(uuid string, tid string, body map[string]interface{}) error {
-	args := m.Called(uuid, tid, body)
+func (m *mockPublisher) Publish(ctx context.Context, uuid string, body map[string]interface{}) error {
+	args := m.Called(ctx, uuid, body)
 	return args.Error(0)
 }
 

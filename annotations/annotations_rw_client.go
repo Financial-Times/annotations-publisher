@@ -15,8 +15,8 @@ import (
 
 type AnnotationsClient interface {
 	health.ExternalService
-	GetAnnotations(ctx context.Context, uuid string) (interface{}, error)
-	SaveAnnotations(ctx context.Context, uuid string, data interface{}) (interface{}, error)
+	GetAnnotations(ctx context.Context, uuid string) ([]Annotation, error)
+	SaveAnnotations(ctx context.Context, uuid string, data []Annotation) ([]Annotation, error)
 }
 
 type genericRWClient struct {
@@ -62,7 +62,7 @@ func (rw *genericRWClient) Endpoint() string {
 	return rw.rwEndpoint
 }
 
-func (rw *genericRWClient) GetAnnotations(ctx context.Context, uuid string) (interface{}, error) {
+func (rw *genericRWClient) GetAnnotations(ctx context.Context, uuid string) ([]Annotation, error) {
 	draftsUrl := fmt.Sprintf(rw.rwEndpoint, uuid)
 	req, err := http.NewRequest("GET", draftsUrl, nil)
 	if err != nil {
@@ -90,18 +90,13 @@ func (rw *genericRWClient) GetAnnotations(ctx context.Context, uuid string) (int
 		return nil, fmt.Errorf("Read from %v returned a %v status code", draftsUrl, resp.StatusCode)
 	}
 
-	body := make(map[string]interface{})
-	ann := []interface{}{}
+	ann := []Annotation{}
 	err = json.NewDecoder(resp.Body).Decode(&ann)
-	if err != nil {
-		return nil, err
-	}
-	body["annotations"] = ann
 
-	return body, nil
+	return ann, err
 }
 
-func (rw *genericRWClient) SaveAnnotations(ctx context.Context, uuid string, data interface{}) (interface{}, error) {
+func (rw *genericRWClient) SaveAnnotations(ctx context.Context, uuid string, data []Annotation) ([]Annotation, error) {
 	draftsUrl := fmt.Sprintf(rw.rwEndpoint, uuid)
 	body, err := json.Marshal(data)
 	if err != nil {
@@ -126,15 +121,16 @@ func (rw *genericRWClient) SaveAnnotations(ctx context.Context, uuid string, dat
 	defer resp.Body.Close()
 
 	if resp.StatusCode == http.StatusOK || resp.StatusCode == http.StatusCreated {
-		body := make(map[string]interface{})
-		ann := []interface{}{}
-		err = json.NewDecoder(resp.Body).Decode(&ann)
-		if err != nil {
-			return nil, err
+		var ann []Annotation
+		// deal with inconsistency between draft-annotations-api and generic-rw-aurora in their responses from PUT requests
+		if resp.ContentLength == 0 {
+			ann = data
+		} else {
+			ann = []Annotation{}
+			err = json.NewDecoder(resp.Body).Decode(&ann)
 		}
-		body["annotations"] = ann
 
-		return body, nil
+		return ann, err
 	}
 
 	return nil, fmt.Errorf("Write to %v returned a %v status code", draftsUrl, resp.StatusCode)

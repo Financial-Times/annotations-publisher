@@ -37,25 +37,27 @@ func Publish(publisher annotations.Publisher) func(w http.ResponseWriter, r *htt
 }
 
 func saveAndPublish(ctx context.Context, publisher annotations.Publisher, uuid string, w http.ResponseWriter, r *http.Request) {
+	txid, _ := tid.GetTransactionIDFromContext(ctx)
+	mlog := log.WithField(tid.TransactionIDKey, txid)
+
 	body := make(map[string]interface{})
 
 	dec := json.NewDecoder(r.Body)
 	err := dec.Decode(&body)
 	if err != nil {
-		log.WithField("reason", err).Warn("Failed to decode publish body")
+		mlog.WithField("reason", err).Warn("Failed to decode publish body")
 		writeMsg(w, http.StatusBadRequest, "Failed to process request json. Please provide a valid json request body")
 		return
 	}
 
-	txid, _ := tid.GetTransactionIDFromContext(ctx)
-	err = publisher.Publish(uuid, txid, body)
+	err = publisher.Publish(ctx, uuid, body)
 	if err == annotations.ErrInvalidAuthentication { // the service config needs to be updated for this to work
 		writeMsg(w, http.StatusInternalServerError, err.Error())
 		return
 	}
 
 	if err != nil {
-		log.WithField("reason", err).Warn("Failed to publish annotations to UPP")
+		mlog.WithField("reason", err).Error("Failed to publish annotations to UPP")
 		writeMsg(w, http.StatusServiceUnavailable, err.Error())
 		return
 	}
@@ -64,17 +66,17 @@ func saveAndPublish(ctx context.Context, publisher annotations.Publisher, uuid s
 }
 
 func publishFromStore(ctx context.Context, publisher annotations.Publisher, uuid string, w http.ResponseWriter) {
+	txid, _ := tid.GetTransactionIDFromContext(ctx)
+	mlog := log.WithField(tid.TransactionIDKey, txid)
+
 	err := publisher.PublishFromStore(ctx, uuid)
-	if err == annotations.ErrDraftNotFound {
+	if err == nil {
+		writeMsg(w, http.StatusAccepted, "Publish accepted")
+	} else if err == annotations.ErrDraftNotFound {
 		writeMsg(w, http.StatusNotFound, err.Error())
-		return
-	} else if err.Error() == "not implemented" {
-		writeMsg(w, http.StatusNotImplemented, "Not implemented")
-		return
-	} else if err != nil {
-		log.WithError(err).Error("unable to read draft annotations")
-		writeMsg(w, http.StatusInternalServerError, "Unable to read draft annotations")
-		return
+	} else {
+		mlog.WithError(err).Error("unable to publish annotations from store")
+		writeMsg(w, http.StatusInternalServerError, "Unable to publish annotations from store")
 	}
 }
 

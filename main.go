@@ -101,7 +101,7 @@ func main() {
 			log.WithError(err).Error("could not construct writer")
 			return
 		}
-		publisher := annotations.NewPublisher(*originSystemID, draftAnnotationsRW, *annotationsEndpoint, *annotationsAuth, *annotationsGTGEndpoint)
+		publisher := annotations.NewPublisher(*originSystemID, draftAnnotationsRW, publishedAnnotationsRW, *annotationsEndpoint, *annotationsAuth, *annotationsGTGEndpoint)
 		healthService := health.NewHealthService(*appSystemCode, *appName, appDescription, publisher, publishedAnnotationsRW)
 
 		serveEndpoints(*port, apiYml, publisher, healthService)
