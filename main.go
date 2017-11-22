@@ -42,6 +42,13 @@ func main() {
 		EnvVar: "APP_PORT",
 	})
 
+	writerEndpoint := app.String(cli.StringOpt{
+		Name:   "published-annotations-rw-endpoint",
+		Value:  "http://generic-rw-aurora:8080/published/content/%s/annotations",
+		Desc:   "Endpoint for saving/reading published annotations",
+		EnvVar: "PUBLISHED_ANNOTATIONS_RW_ENDPOINT",
+	})
+
 	annotationsEndpoint := app.String(cli.StringOpt{
 		Name:   "annotations-publish-endpoint",
 		Desc:   "Endpoint to publish annotations to UPP",
@@ -74,14 +81,20 @@ func main() {
 		EnvVar: "API_YML",
 	})
 
+	log.SetFormatter(&log.JSONFormatter{})
 	log.SetLevel(log.InfoLevel)
 	log.Infof("[Startup] %v is starting", *appSystemCode)
 
 	app.Action = func() {
 		log.Infof("System code: %s, App Name: %s, Port: %s", *appSystemCode, *appName, *port)
 
+		writer, err := annotations.NewPublishedAnnotationsWriter(*writerEndpoint)
+		if err != nil {
+			log.WithError(err).Error("could not construct writer")
+			return
+		}
 		publisher := annotations.NewPublisher(*originSystemID, *annotationsEndpoint, *annotationsAuth, *annotationsGTGEndpoint)
-		healthService := health.NewHealthService(*appSystemCode, *appName, appDescription, publisher)
+		healthService := health.NewHealthService(*appSystemCode, *appName, appDescription, publisher, writer)
 
 		serveEndpoints(*port, apiYml, publisher, healthService)
 	}
