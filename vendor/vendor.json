@@ -115,10 +115,22 @@
 			"versionExact": "v1.0.3"
 		},
 		{
+			"checksumSHA1": "ofNmmhhJAxYL1Mh09iq+utdfHIM=",
+			"path": "github.com/stretchr/objx",
+			"revision": "1a9d0bb9f541897e62256577b352fdbc1fb4fd94",
+			"revisionTime": "2015-09-28T12:21:52Z"
+		},
+		{
 			"checksumSHA1": "mGbTYZ8dHVTiPTTJu3ktp+84pPI=",
 			"path": "github.com/stretchr/testify/assert",
 			"revision": "890a5c3458b43e6104ff5da8dfa139d013d77544",
 			"revisionTime": "2017-07-05T02:17:15Z"
+		},
+		{
+			"checksumSHA1": "e2e65W/uBm5E7RF/ELKP06rEVUo=",
+			"path": "github.com/stretchr/testify/mock",
+			"revision": "2aa2c176b9dab406a6970f6a55f513e8a8c8b18f",
+			"revisionTime": "2017-08-14T20:04:35Z"
 		},
 		{
 			"checksumSHA1": "7vs6dSc1PPGBKyzb/SCIyeMJPLQ=",

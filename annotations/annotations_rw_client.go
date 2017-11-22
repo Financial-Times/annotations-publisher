@@ -1,16 +1,22 @@
 package annotations
 
 import (
+	"context"
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"net/url"
 
 	"github.com/Financial-Times/annotations-publisher/health"
 	status "github.com/Financial-Times/service-status-go/httphandlers"
+	tid "github.com/Financial-Times/transactionid-utils-go"
+	"bytes"
 )
 
-type PublishedAnnotationsWriter interface {
+type AnnotationsClient interface {
 	health.ExternalService
+	GetAnnotations(ctx context.Context, uuid string) (interface{}, error)
+	SaveAnnotations(ctx context.Context, uuid string, data interface{}) (interface{}, error)
 }
 
 type genericRWClient struct {
@@ -19,7 +25,7 @@ type genericRWClient struct {
 	gtgEndpoint     string
 }
 
-func NewPublishedAnnotationsWriter(endpoint string) (PublishedAnnotationsWriter, error) {
+func NewAnnotationsClient(endpoint string) (AnnotationsClient, error) {
 	v, err := url.Parse(fmt.Sprintf(endpoint, "dummy"))
 	if err != nil {
 		return nil, err
@@ -54,4 +60,82 @@ func (rw *genericRWClient) GTG() error {
 
 func (rw *genericRWClient) Endpoint() string {
 	return rw.rwEndpoint
+}
+
+func (rw *genericRWClient) GetAnnotations(ctx context.Context, uuid string) (interface{}, error) {
+	draftsUrl := fmt.Sprintf(rw.rwEndpoint, uuid)
+	req, err := http.NewRequest("GET", draftsUrl, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	txid, _ := tid.GetTransactionIDFromContext(ctx)
+
+	req.Header.Set("User-Agent", userAgent)
+	req.Header.Set("X-Request-Id", txid)
+	req.Header.Set("Accept", "application/json")
+
+	resp, err := rw.client.Do(req)
+	if err != nil {
+		return nil, err
+	}
+
+	defer resp.Body.Close()
+
+	if resp.StatusCode == http.StatusNotFound {
+		return nil, ErrDraftNotFound
+	}
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("Read from %v returned a %v status code", draftsUrl, resp.StatusCode)
+	}
+
+	body := make(map[string]interface{})
+	ann := []interface{}{}
+	err = json.NewDecoder(resp.Body).Decode(&ann)
+	if err != nil {
+		return nil, err
+	}
+	body["annotations"] = ann
+
+	return body, nil
+}
+
+func (rw *genericRWClient) SaveAnnotations(ctx context.Context, uuid string, data interface{}) (interface{}, error) {
+	draftsUrl := fmt.Sprintf(rw.rwEndpoint, uuid)
+	body, err := json.Marshal(data)
+	if err != nil {
+		return nil, err
+	}
+	req, err := http.NewRequest("PUT", draftsUrl, bytes.NewReader(body))
+	if err != nil {
+		return nil, err
+	}
+
+	txid, _ := tid.GetTransactionIDFromContext(ctx)
+
+	req.Header.Set("User-Agent", userAgent)
+	req.Header.Set("X-Request-Id", txid)
+	req.Header.Set("Accept", "application/json")
+
+	resp, err := rw.client.Do(req)
+	if err != nil {
+		return nil, err
+	}
+
+	defer resp.Body.Close()
+
+	if resp.StatusCode == http.StatusOK || resp.StatusCode == http.StatusCreated {
+		body := make(map[string]interface{})
+		ann := []interface{}{}
+		err = json.NewDecoder(resp.Body).Decode(&ann)
+		if err != nil {
+			return nil, err
+		}
+		body["annotations"] = ann
+
+		return body, nil
+	}
+
+	return nil, fmt.Errorf("Write to %v returned a %v status code", draftsUrl, resp.StatusCode)
 }

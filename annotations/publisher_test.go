@@ -1,30 +1,60 @@
 package annotations
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"testing"
 
+	tid "github.com/Financial-Times/transactionid-utils-go"
 	"github.com/husobee/vestigo"
 	"github.com/pborman/uuid"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
+	"errors"
 )
+
+type mockAnnotationsClient struct {
+	mock.Mock
+}
+
+func (m *mockAnnotationsClient) GetAnnotations(ctx context.Context, uuid string) (interface{}, error) {
+	args := m.Called(ctx, uuid)
+	return args.Get(0), args.Error(1)
+}
+
+func (m *mockAnnotationsClient) SaveAnnotations(ctx context.Context, uuid string, data interface{}) (interface{}, error) {
+	args := m.Called(ctx, uuid, data)
+	return args.Get(0), args.Error(1)
+}
+
+func (m *mockAnnotationsClient) GTG() error {
+	args := m.Called()
+	return args.Error(0)
+}
+
+func (m *mockAnnotationsClient) Endpoint() string {
+	args := m.Called()
+	return args.String(0)
+}
 
 func TestPublish(t *testing.T) {
 	uuid := uuid.New()
 	server := startMockServer(t, uuid, true, true)
 	defer server.Close()
 
-	publisher := NewPublisher("originSystemID", "draftsEndpoint", server.URL+"/notify", "user:pass", server.URL+"/__gtg")
+	draftAnnotationsClient := &mockAnnotationsClient{}
+	publisher := NewPublisher("originSystemID", draftAnnotationsClient, server.URL+"/notify", "user:pass", server.URL+"/__gtg")
 
 	err := publisher.Publish(uuid, "tid", make(map[string]interface{}))
 	assert.NoError(t, err)
 }
 
 func TestPublishFailsToMarshalBodyToJSON(t *testing.T) {
-	publisher := NewPublisher("originSystemID", "draftsEndpoint", "/notify", "user:pass", "/__gtg")
+	draftAnnotationsClient := &mockAnnotationsClient{}
+	publisher := NewPublisher("originSystemID", draftAnnotationsClient, "/notify", "user:pass", "/__gtg")
 
 	body := make(map[string]interface{})
 	body["dodgy!"] = func() {}
@@ -33,7 +63,8 @@ func TestPublishFailsToMarshalBodyToJSON(t *testing.T) {
 }
 
 func TestPublishFailsInvalidURL(t *testing.T) {
-	publisher := NewPublisher("originSystemID", "draftsEndpoint", ":#", "user:pass", "/__gtg")
+	draftAnnotationsClient := &mockAnnotationsClient{}
+	publisher := NewPublisher("originSystemID", draftAnnotationsClient, ":#", "user:pass", "/__gtg")
 
 	body := make(map[string]interface{})
 	err := publisher.Publish("a-valid-uuid", "tid", body)
@@ -41,7 +72,8 @@ func TestPublishFailsInvalidURL(t *testing.T) {
 }
 
 func TestPublishRequestFailsServerUnavailable(t *testing.T) {
-	publisher := NewPublisher("originSystemID", "draftsEndpoint", "/publish", "user:pass", "/__gtg")
+	draftAnnotationsClient := &mockAnnotationsClient{}
+	publisher := NewPublisher("originSystemID", draftAnnotationsClient, "/publish", "user:pass", "/__gtg")
 
 	body := make(map[string]interface{})
 	err := publisher.Publish("a-valid-uuid", "tid", body)
@@ -53,7 +85,8 @@ func TestPublishRequestUnsuccessful(t *testing.T) {
 	server := startMockServer(t, uuid, false, true)
 	defer server.Close()
 
-	publisher := NewPublisher("originSystemID", "draftsEndpoint", server.URL+"/notify", "user:pass", server.URL+"/__gtg")
+	draftAnnotationsClient := &mockAnnotationsClient{}
+	publisher := NewPublisher("originSystemID", draftAnnotationsClient, server.URL+"/notify", "user:pass", server.URL+"/__gtg")
 
 	body := make(map[string]interface{})
 	err := publisher.Publish(uuid, "tid", body)
@@ -61,19 +94,21 @@ func TestPublishRequestUnsuccessful(t *testing.T) {
 }
 
 func TestPublisherEndpoint(t *testing.T) {
-	publisher := NewPublisher("originSystemID", "draftsEndpoint", "/publish", "user:pass", "/__gtg")
+	draftAnnotationsClient := &mockAnnotationsClient{}
+	publisher := NewPublisher("originSystemID", draftAnnotationsClient, "/publish", "user:pass", "/__gtg")
 	assert.Equal(t, "/publish", publisher.Endpoint())
 }
 
 func TestPublisherAuthIsInvalid(t *testing.T) {
-	publisher := NewPublisher("originSystemID", "draftsEndpoint", "/publish", "user", "/__gtg")
+	draftAnnotationsClient := &mockAnnotationsClient{}
+	publisher := NewPublisher("originSystemID", draftAnnotationsClient, "/publish", "user", "/__gtg")
 
 	body := make(map[string]interface{})
 	err := publisher.Publish("a-valid-uuid", "tid", body)
 	assert.EqualError(t, err, "Invalid auth configured")
 
 	// Now check for too many ':'s
-	publisher = NewPublisher("originSystemID", "draftsEndpoint", "/publish", "user:pass:anotherPass", "/__gtg")
+	publisher = NewPublisher("originSystemID", draftAnnotationsClient, "/publish", "user:pass:anotherPass", "/__gtg")
 
 	err = publisher.Publish("a-valid-uuid", "tid", body)
 	assert.EqualError(t, err, "Invalid auth configured")
@@ -84,7 +119,8 @@ func TestPublisherAuthenticationFails(t *testing.T) {
 	server := startMockServer(t, uuid, false, true)
 	defer server.Close()
 
-	publisher := NewPublisher("originSystemID", "draftsEndpoint", server.URL+"/notify", "user:should-fail", server.URL+"/__gtg")
+	draftAnnotationsClient := &mockAnnotationsClient{}
+	publisher := NewPublisher("originSystemID", draftAnnotationsClient, server.URL+"/notify", "user:should-fail", server.URL+"/__gtg")
 
 	body := make(map[string]interface{})
 	err := publisher.Publish("a-valid-uuid", "tid", body)
@@ -95,7 +131,8 @@ func TestPublisherGTG(t *testing.T) {
 	server := startMockServer(t, "", true, true)
 	defer server.Close()
 
-	publisher := NewPublisher("originSystemID", "draftsEndpoint", "publishEndpoint", "user:pass", server.URL+"/__gtg")
+	draftAnnotationsClient := &mockAnnotationsClient{}
+	publisher := NewPublisher("originSystemID", draftAnnotationsClient, "publishEndpoint", "user:pass", server.URL+"/__gtg")
 	err := publisher.GTG()
 	assert.NoError(t, err)
 }
@@ -104,21 +141,49 @@ func TestPublisherGTGFails(t *testing.T) {
 	server := startMockServer(t, "", true, false)
 	defer server.Close()
 
-	publisher := NewPublisher("originSystemID", "draftsEndpoint","publishEndpoint", "user:pass", server.URL+"/__gtg")
+	draftAnnotationsClient := &mockAnnotationsClient{}
+	publisher := NewPublisher("originSystemID", draftAnnotationsClient,"publishEndpoint", "user:pass", server.URL+"/__gtg")
 	err := publisher.GTG()
 	assert.EqualError(t, err, fmt.Sprintf("GTG %v returned a %v status code", server.URL+"/__gtg", http.StatusServiceUnavailable))
 }
 
 func TestPublisherGTGDoRequestFails(t *testing.T) {
-	publisher := NewPublisher("originSystemID", "draftsEndpoint", "publishEndpoint", "user:pass", "/__gtg")
+	draftAnnotationsClient := &mockAnnotationsClient{}
+	publisher := NewPublisher("originSystemID", draftAnnotationsClient, "publishEndpoint", "user:pass", "/__gtg")
 	err := publisher.GTG()
 	assert.EqualError(t, err, "Get /__gtg: unsupported protocol scheme \"\"")
 }
 
 func TestPublisherGTGInvalidURL(t *testing.T) {
-	publisher := NewPublisher("originSystemID", "draftsEndpoint", "publishEndpoint", "user:pass", ":#")
+	draftAnnotationsClient := &mockAnnotationsClient{}
+	publisher := NewPublisher("originSystemID", draftAnnotationsClient, "publishEndpoint", "user:pass", ":#")
 	err := publisher.GTG()
 	assert.EqualError(t, err, "parse :: missing protocol scheme")
+}
+
+func TestPublishFromStoreNotFound(t *testing.T) {
+	uuid := uuid.New()
+
+	draftAnnotationsClient := &mockAnnotationsClient{}
+	draftAnnotationsClient.On("GetAnnotations", mock.Anything, uuid).Return(nil, ErrDraftNotFound)
+	publisher := NewPublisher("originSystemID", draftAnnotationsClient, "http://www.example.com/notify", "user:pass", "http://www.example.com/__gtg")
+
+	ctx := tid.TransactionAwareContext(context.Background(), "tid_test")
+	err := publisher.PublishFromStore(ctx, uuid)
+	assert.EqualError(t, err, ErrDraftNotFound.Error())
+}
+
+func TestPublishFromStoreGetDraftsFails(t *testing.T) {
+	uuid := uuid.New()
+	msg := "test error"
+
+	draftAnnotationsClient := &mockAnnotationsClient{}
+	draftAnnotationsClient.On("GetAnnotations", mock.Anything, uuid).Return(nil, errors.New(msg))
+	publisher := NewPublisher("originSystemID", draftAnnotationsClient, "http://www.example.com/notify", "user:pass", "http://www.example.com/__gtg")
+
+	ctx := tid.TransactionAwareContext(context.Background(), "tid_test")
+	err := publisher.PublishFromStore(ctx, uuid)
+	assert.EqualError(t, err, msg)
 }
 
 func startMockServer(t *testing.T, uuid string, publishOk bool, gtgOk bool) *httptest.Server {

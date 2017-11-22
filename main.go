@@ -95,13 +95,14 @@ func main() {
 	app.Action = func() {
 		log.Infof("System code: %s, App Name: %s, Port: %s", *appSystemCode, *appName, *port)
 
-		writer, err := annotations.NewPublishedAnnotationsWriter(*writerEndpoint)
+		draftAnnotationsRW, err := annotations.NewAnnotationsClient(*draftsEndpoint)
+		publishedAnnotationsRW, err := annotations.NewAnnotationsClient(*writerEndpoint)
 		if err != nil {
 			log.WithError(err).Error("could not construct writer")
 			return
 		}
-		publisher := annotations.NewPublisher(*originSystemID, *draftsEndpoint, *annotationsEndpoint, *annotationsAuth, *annotationsGTGEndpoint)
-		healthService := health.NewHealthService(*appSystemCode, *appName, appDescription, publisher, writer)
+		publisher := annotations.NewPublisher(*originSystemID, draftAnnotationsRW, *annotationsEndpoint, *annotationsAuth, *annotationsGTGEndpoint)
+		healthService := health.NewHealthService(*appSystemCode, *appName, appDescription, publisher, publishedAnnotationsRW)
 
 		serveEndpoints(*port, apiYml, publisher, healthService)
 	}

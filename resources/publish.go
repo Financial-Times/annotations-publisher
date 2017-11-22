@@ -64,18 +64,18 @@ func saveAndPublish(ctx context.Context, publisher annotations.Publisher, uuid s
 }
 
 func publishFromStore(ctx context.Context, publisher annotations.Publisher, uuid string, w http.ResponseWriter) {
-	draft, err := publisher.GetDraft(ctx, uuid)
+	err := publisher.PublishFromStore(ctx, uuid)
 	if err == annotations.ErrDraftNotFound {
 		writeMsg(w, http.StatusNotFound, err.Error())
+		return
+	} else if err.Error() == "not implemented" {
+		writeMsg(w, http.StatusNotImplemented, "Not implemented")
 		return
 	} else if err != nil {
 		log.WithError(err).Error("unable to read draft annotations")
 		writeMsg(w, http.StatusInternalServerError, "Unable to read draft annotations")
 		return
 	}
-
-	log.Info(draft)
-	writeMsg(w, http.StatusNotImplemented, "Not implemented")
 }
 
 func writeMsg(w http.ResponseWriter, status int, msg string) {

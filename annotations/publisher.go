@@ -11,6 +11,7 @@ import (
 
 	"github.com/Financial-Times/annotations-publisher/health"
 	tid "github.com/Financial-Times/transactionid-utils-go"
+	log "github.com/sirupsen/logrus"
 )
 
 const (
@@ -27,22 +28,22 @@ var (
 type Publisher interface {
 	health.ExternalService
 	Publish(uuid string, tid string, body map[string]interface{}) error
-	GetDraft(ctx context.Context, uuid string) (interface{}, error)
-	SaveDraft(ctx context.Context, uuid string, data interface{}) (interface{}, error)
+	PublishFromStore(ctx context.Context, uuid string) error
 }
 
 type uppPublisher struct {
-	client          *http.Client
-	originSystemID  string
-	draftsEndpoint  string
-	publishEndpoint string
-	publishAuth     string
-	gtgEndpoint     string
+	client                     *http.Client
+	originSystemID             string
+	draftAnnotationsClient     AnnotationsClient
+	publishedAnnotationsClient AnnotationsClient
+	publishEndpoint            string
+	publishAuth                string
+	gtgEndpoint                string
 }
 
 // NewPublisher returns a new Publisher instance
-func NewPublisher(originSystemID string, draftsEndpoint string, publishEndpoint string, publishAuth string, gtgEndpoint string) Publisher {
-	return &uppPublisher{client: &http.Client{}, originSystemID: originSystemID, draftsEndpoint: draftsEndpoint, publishEndpoint: publishEndpoint, publishAuth: publishAuth, gtgEndpoint: gtgEndpoint}
+func NewPublisher(originSystemID string, draftAnnotationsClient AnnotationsClient, publishEndpoint string, publishAuth string, gtgEndpoint string) Publisher {
+	return &uppPublisher{client: &http.Client{}, originSystemID: originSystemID, draftAnnotationsClient: draftAnnotationsClient, publishedAnnotationsClient: nil, publishEndpoint: publishEndpoint, publishAuth: publishAuth, gtgEndpoint: gtgEndpoint}
 }
 
 // Publish sends the annotations to UPP via the configured publishEndpoint. Requests contain X-Origin-System-Id and X-Request-Id and a User-Agent as provided.
@@ -122,76 +123,14 @@ func (a *uppPublisher) Endpoint() string {
 	return a.publishEndpoint
 }
 
-func (a *uppPublisher) GetDraft(ctx context.Context, uuid string) (interface{}, error) {
-	draftsUrl := fmt.Sprintf(a.draftsEndpoint, uuid)
-	req, err := http.NewRequest("GET", draftsUrl, nil)
-	if err != nil {
-		return nil, err
-	}
-
+func (a *uppPublisher) PublishFromStore(ctx context.Context, uuid string) error {
 	txid, _ := tid.GetTransactionIDFromContext(ctx)
 
-	req.Header.Set("User-Agent", userAgent)
-	req.Header.Set("X-Request-Id", txid)
-	req.Header.Set("Accept", "application/json")
-
-	resp, err := a.client.Do(req)
-	if err != nil {
-		return nil, err
+	draft, err := a.draftAnnotationsClient.GetAnnotations(ctx, uuid)
+	if err == nil {
+		log.WithField("transaction_id", txid).Info(draft)
+		err = errors.New("not implemented")
 	}
 
-	defer resp.Body.Close()
-
-	if resp.StatusCode == http.StatusNotFound {
-		return nil, ErrDraftNotFound
-	}
-
-	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("Read from %v returned a %v status code", draftsUrl, resp.StatusCode)
-	}
-
-	body := make(map[string]interface{})
-	ann := []interface{}{}
-	err = json.NewDecoder(resp.Body).Decode(&ann)
-	if err != nil {
-		return nil, err
-	}
-	body["annotations"] = ann
-
-	return body, nil
-}
-
-func (a *uppPublisher) SaveDraft(ctx context.Context, uuid string, data interface{}) (interface{}, error) {
-	draftsUrl := fmt.Sprintf(a.draftsEndpoint, uuid)
-	req, err := http.NewRequest("PUT", draftsUrl, nil)
-	if err != nil {
-		return nil, err
-	}
-
-	txid, _ := tid.GetTransactionIDFromContext(ctx)
-
-	req.Header.Set("User-Agent", userAgent)
-	req.Header.Set("X-Request-Id", txid)
-	req.Header.Set("Accept", "application/json")
-
-	resp, err := a.client.Do(req)
-	if err != nil {
-		return nil, err
-	}
-
-	defer resp.Body.Close()
-
-	if resp.StatusCode == http.StatusOK || resp.StatusCode == http.StatusCreated {
-		body := make(map[string]interface{})
-		ann := []interface{}{}
-		err = json.NewDecoder(resp.Body).Decode(&ann)
-		if err != nil {
-			return nil, err
-		}
-		body["annotations"] = ann
-
-		return body, nil
-	}
-
-	return nil, fmt.Errorf("Write to %v returned a %v status code", draftsUrl, resp.StatusCode)
+	return err
 }
