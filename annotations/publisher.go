@@ -132,17 +132,20 @@ func (a *uppPublisher) PublishFromStore(ctx context.Context, uuid string) error 
 	mlog := log.WithField("transaction_id", txid)
 
 	var draft []Annotation
+	var hash string
 	var published []Annotation
 	var err error
-	if draft, err = a.draftAnnotationsClient.GetAnnotations(ctx, uuid); err == nil {
-		published, err = a.draftAnnotationsClient.SaveAnnotations(ctx, uuid, draft)
+
+	if draft, hash, err = a.draftAnnotationsClient.GetAnnotations(ctx, uuid); err == nil {
+		published, hash, err = a.draftAnnotationsClient.SaveAnnotations(ctx, uuid, hash, draft)
 	}
+
 	if err != nil {
 		mlog.WithError(err).Error("r/w to draft annotations failed")
 		return err
 	}
 
-	_, err = a.publishedAnnotationsClient.SaveAnnotations(ctx, uuid, published)
+	_, _, err = a.publishedAnnotationsClient.SaveAnnotations(ctx, uuid, hash, published)
 	if err != nil {
 		mlog.WithError(err).Error("r/w to published annotations failed")
 		return err
