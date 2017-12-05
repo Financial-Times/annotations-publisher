@@ -102,7 +102,7 @@ func main() {
 			return
 		}
 		publisher := annotations.NewPublisher(*originSystemID, draftAnnotationsRW, publishedAnnotationsRW, *annotationsEndpoint, *annotationsAuth, *annotationsGTGEndpoint)
-		healthService := health.NewHealthService(*appSystemCode, *appName, appDescription, publisher, publishedAnnotationsRW)
+		healthService := health.NewHealthService(*appSystemCode, *appName, appDescription, publisher, publishedAnnotationsRW, draftAnnotationsRW)
 
 		serveEndpoints(*port, apiYml, publisher, healthService)
 	}
