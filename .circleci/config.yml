@@ -69,6 +69,9 @@ jobs:
           name: Go Build
           command: go build -v
       - run:
+          name: Dredd Hook Dependencies
+          command: cd ./api && npm install 
+      - run:
           name: Dredd API Testing
           command: dredd
 workflows:

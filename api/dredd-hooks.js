@@ -1,35 +1,28 @@
 var hooks = require('hooks');
+var _ = require('lodash');
 var clone = require('clone');
 
-var methods = ['POST', 'PUT', 'GET', 'DELETE'];
+var httpMethods = ['POST', 'PUT', 'GET', 'DELETE']; // OPTIONS and HEAD are supported by default
 
 hooks.beforeAll(function(transactions, done){
-   var uriMap = {};
-   transactions.map((transaction) => {
-      if(!uriMap[transaction.request.uri]){
-         uriMap[transaction.request.uri] = [];
-      }
-
-      if(uriMap[transaction.request.uri].indexOf(transaction.request.method) === -1){
-         uriMap[transaction.request.uri].push(transaction.request.method);
-      }
+   var groupedByUri = _.groupBy(transactions, 'request.uri');
+   groupedByUri = _.map(groupedByUri, (v, k) => {
+      return {uri: k, methods: _.uniq(v.map(transaction => {return transaction.request.method;}))};
    });
 
-   Object.keys(uriMap).map((uri) => {
-      transactions.filter((t) => {return t.request.uri === uri;}).map(t => {
-         methods.filter(m => {return uriMap[uri].indexOf(m) === -1;})
-            .map(m => {
-               var copy = clone(t);
-               copy.request.method = m;
-               copy.request.headers['Accept'] = '*';
-               copy.expected.statusCode = 405;
-               copy.expected.body = 'Method Not Allowed';
-               copy.expected.headers['Content-Type'] = 'text/plain; charset=utf-8'
-               transactions.push(copy);
-            });
+   _.map(groupedByUri, (val) => {
+      var transaction = _.find(transactions, ['request.uri', val.uri])
+      var testMethods = _.difference(httpMethods, val.methods);
+      testMethods.map(m => {
+         var copy = clone(transaction);
+         copy.request.method = m;
+         copy.request.headers['Accept'] = '*';
+         copy.expected.statusCode = 405;
+         copy.expected.body = 'Method Not Allowed';
+         copy.expected.headers['Content-Type'] = 'text/plain; charset=utf-8'
+         transactions.push(copy);
       });
-   });
-
+   })
    done();
 });
 

@@ -2,5 +2,5 @@
 /*.exe
 /vendor/*
 !/vendor/vendor.json
-
+/api/node_modules
 .idea/
