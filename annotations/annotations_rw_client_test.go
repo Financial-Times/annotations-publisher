@@ -15,13 +15,15 @@ import (
 	log "github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
 )
+
 
 func TestAnnotationsRWGTG(t *testing.T) {
 	server := mockGtgServer(t, true)
 	defer server.Close()
 
-	client, err := NewAnnotationsClient(server.URL + "/%s")
+	client, err := NewAnnotationsClient(server.URL + "/%s",timeout)
 	assert.NoError(t, err)
 
 	err = client.GTG()
@@ -32,13 +34,13 @@ func TestAnnotationsRWGTGFails(t *testing.T) {
 	server := mockGtgServer(t, false)
 	defer server.Close()
 
-	client, err := NewAnnotationsClient(server.URL + "/%s")
+	client, err := NewAnnotationsClient(server.URL + "/%s", timeout)
 	err = client.GTG()
 	assert.EqualError(t, err, fmt.Sprintf("GTG %v returned a %v status code", server.URL+"/__gtg", http.StatusServiceUnavailable))
 }
 
 func TestAnnotationsRWGTGInvalidURL(t *testing.T) {
-	client, err := NewAnnotationsClient(":#")
+	client, err := NewAnnotationsClient(":#", timeout)
 	assert.Nil(t, client, "New PublishedAnnotationsWriter should not have returned a client")
 	assert.EqualError(t, err, "parse :: missing protocol scheme")
 }
@@ -100,7 +102,7 @@ func TestGetAnnotations(t *testing.T) {
 	server := httptest.NewServer(r)
 	defer server.Close()
 
-	client, err := NewAnnotationsClient(server.URL + "/drafts/content/%s/annotations")
+	client, err := NewAnnotationsClient(server.URL + "/drafts/content/%s/annotations", timeout)
 	require.NoError(t, err)
 
 	actual, err := client.GetAnnotations(testCtx, testUuid)
@@ -119,7 +121,7 @@ func TestGetAnnotationsNotFound(t *testing.T) {
 	server := httptest.NewServer(r)
 	defer server.Close()
 
-	client, err := NewAnnotationsClient(server.URL + "/drafts/content/%s/annotations")
+	client, err := NewAnnotationsClient(server.URL + "/drafts/content/%s/annotations",timeout)
 	require.NoError(t, err)
 
 	_, err = client.GetAnnotations(testCtx, uuid.New())
@@ -136,7 +138,7 @@ func TestGetAnnotationsFailure(t *testing.T) {
 	server := httptest.NewServer(r)
 	defer server.Close()
 
-	client, err := NewAnnotationsClient(server.URL + "/drafts/content/%s/annotations")
+	client, err := NewAnnotationsClient(server.URL + "/drafts/content/%s/annotations", timeout)
 	require.NoError(t, err)
 
 	_, err = client.GetAnnotations(testCtx, uuid.New())
@@ -195,7 +197,7 @@ func TestSaveAnnotations(t *testing.T) {
 	server := httptest.NewServer(r)
 	defer server.Close()
 
-	client, err := NewAnnotationsClient(server.URL + "/drafts/content/%s/annotations")
+	client, err := NewAnnotationsClient(server.URL + "/drafts/content/%s/annotations", timeout)
 	require.NoError(t, err)
 
 	actual, err := client.SaveAnnotations(testCtx, testUuid, testAnnotations)
@@ -221,7 +223,7 @@ func TestSaveAnnotationsCreatedStatus(t *testing.T) {
 	server := httptest.NewServer(r)
 	defer server.Close()
 
-	client, err := NewAnnotationsClient(server.URL + "/drafts/content/%s/annotations")
+	client, err := NewAnnotationsClient(server.URL + "/drafts/content/%s/annotations", timeout)
 	require.NoError(t, err)
 
 	actual, err := client.SaveAnnotations(testCtx, testUuid, testAnnotations)
@@ -248,7 +250,7 @@ func TestSaveAnnotationsError(t *testing.T) {
 	defer server.Close()
 
 	annotationsUrl := server.URL + "/drafts/content/%s/annotations"
-	client, err := NewAnnotationsClient(annotationsUrl)
+	client, err := NewAnnotationsClient(annotationsUrl, timeout)
 	require.NoError(t, err)
 
 	_, err = client.SaveAnnotations(testCtx, testUuid, testAnnotations)
@@ -272,7 +274,7 @@ func TestSaveAnnotationsWriterReturnsNoBody(t *testing.T) {
 	server := httptest.NewServer(r)
 	defer server.Close()
 
-	client, err := NewAnnotationsClient(server.URL + "/drafts/content/%s/annotations")
+	client, err := NewAnnotationsClient(server.URL + "/drafts/content/%s/annotations", timeout)
 	require.NoError(t, err)
 
 	actual, err := client.SaveAnnotations(testCtx, testUuid, testAnnotations)

@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+	"time"
 
 	"github.com/Financial-Times/annotations-publisher/health"
 	status "github.com/Financial-Times/service-status-go/httphandlers"
@@ -25,7 +26,7 @@ type genericRWClient struct {
 	gtgEndpoint     string
 }
 
-func NewAnnotationsClient(endpoint string) (AnnotationsClient, error) {
+func NewAnnotationsClient(endpoint string, timeout time.Duration) (AnnotationsClient, error) {
 	v, err := url.Parse(fmt.Sprintf(endpoint, "dummy"))
 	if err != nil {
 		return nil, err
@@ -34,7 +35,7 @@ func NewAnnotationsClient(endpoint string) (AnnotationsClient, error) {
 	gtg, _ := url.Parse(status.GTGPath)
 	gtgUrl := v.ResolveReference(gtg)
 
-	return &genericRWClient{client: &http.Client{}, rwEndpoint: endpoint, gtgEndpoint: gtgUrl.String()}, nil
+	return &genericRWClient{client: &http.Client{Timeout: timeout}, rwEndpoint: endpoint, gtgEndpoint: gtgUrl.String()}, nil
 }
 
 func (rw *genericRWClient) GTG() error {
