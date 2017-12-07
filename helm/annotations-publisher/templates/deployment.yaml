@@ -31,13 +31,13 @@ spec:
           valueFrom:
             configMapKeyRef:
               name: global-config
-              key: upp.annotations.publish.gtg.endpoint
-        - name: ANNOTATIONS_PUBLISH_AUTH
-         valueFrom:
-            configMapKeyRef:
-              name: global-config
               key: http.client.timeout
         - name: HTTP_CLIENT_TIMEOUT
+          valueFrom:
+            configMapKeyRef:
+              name: global-config
+              key: upp.annotations.publish.gtg.endpoint
+        - name: ANNOTATIONS_PUBLISH_AUTH
           valueFrom:
             secretKeyRef:
               name: upp-annotations
