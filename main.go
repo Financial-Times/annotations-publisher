@@ -91,7 +91,7 @@ func main() {
 
 	httpTimeout := app.String(cli.StringOpt{
 		Name:   "http-timeout",
-		Value:  "8",
+		Value:  "8s",
 		Desc:   "http client timeout in seconds",
 		EnvVar: "HTTP_CLIENT_TIMEOUT",
 	})
@@ -103,6 +103,10 @@ func main() {
 	app.Action = func() {
 		log.Infof("System code: %s, App Name: %s, Port: %s", *appSystemCode, *appName, *port)
 		timeout, err :=time.ParseDuration(*httpTimeout)
+		if err != nil {
+			log.WithError(err).Error("could not parse timeout value")
+			return
+		}
 		draftAnnotationsRW, err := annotations.NewAnnotationsClient(*draftsEndpoint, timeout)
 		publishedAnnotationsRW, err := annotations.NewAnnotationsClient(*writerEndpoint, timeout)
 		if err != nil {
