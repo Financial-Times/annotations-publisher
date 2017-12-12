@@ -14,6 +14,7 @@ import (
 	cli "github.com/jawher/mow.cli"
 	metrics "github.com/rcrowley/go-metrics"
 	log "github.com/sirupsen/logrus"
+	"time"
 )
 
 const appDescription = "PAC Annotations Publisher"
@@ -40,6 +41,13 @@ func main() {
 		Value:  "8080",
 		Desc:   "Port to listen on",
 		EnvVar: "APP_PORT",
+	})
+
+	draftsEndpoint := app.String(cli.StringOpt{
+		Name:   "draft-annotations-rw-endpoint",
+		Desc:   "Endpoint for saving/reading draft annotations",
+		Value:  "http://draft-annotations-api:8080/drafts/content/%v/annotations",
+		EnvVar: "DRAFT_ANNOTATIONS_RW_ENDPOINT",
 	})
 
 	writerEndpoint := app.String(cli.StringOpt{
@@ -81,20 +89,32 @@ func main() {
 		EnvVar: "API_YML",
 	})
 
+	httpTimeout := app.String(cli.StringOpt{
+		Name:   "http-timeout",
+		Value:  "8s",
+		Desc:   "http client timeout in seconds",
+		EnvVar: "HTTP_CLIENT_TIMEOUT",
+	})
+
 	log.SetFormatter(&log.JSONFormatter{})
 	log.SetLevel(log.InfoLevel)
 	log.Infof("[Startup] %v is starting", *appSystemCode)
 
 	app.Action = func() {
 		log.Infof("System code: %s, App Name: %s, Port: %s", *appSystemCode, *appName, *port)
-
-		writer, err := annotations.NewPublishedAnnotationsWriter(*writerEndpoint)
+		timeout, err :=time.ParseDuration(*httpTimeout)
+		if err != nil {
+			log.WithError(err).Error("could not parse timeout value")
+			return
+		}
+		draftAnnotationsRW, err := annotations.NewAnnotationsClient(*draftsEndpoint, timeout)
+		publishedAnnotationsRW, err := annotations.NewAnnotationsClient(*writerEndpoint, timeout)
 		if err != nil {
 			log.WithError(err).Error("could not construct writer")
 			return
 		}
-		publisher := annotations.NewPublisher(*originSystemID, *annotationsEndpoint, *annotationsAuth, *annotationsGTGEndpoint)
-		healthService := health.NewHealthService(*appSystemCode, *appName, appDescription, publisher, writer)
+		publisher := annotations.NewPublisher(*originSystemID, draftAnnotationsRW, publishedAnnotationsRW, *annotationsEndpoint, *annotationsAuth, *annotationsGTGEndpoint, timeout)
+		healthService := health.NewHealthService(*appSystemCode, *appName, appDescription, publisher, publishedAnnotationsRW, draftAnnotationsRW)
 
 		serveEndpoints(*port, apiYml, publisher, healthService)
 	}

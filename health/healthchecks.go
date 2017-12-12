@@ -4,28 +4,34 @@ import (
 	"fmt"
 	"net/http"
 
-	"github.com/Financial-Times/annotations-publisher/annotations"
 	fthealth "github.com/Financial-Times/go-fthealth/v1_1"
 	"github.com/Financial-Times/service-status-go/gtg"
 )
+
+type ExternalService interface {
+	Endpoint() string
+	GTG() error
+}
 
 // HealthService runs application health checks, and provides the /__health http endpoint
 type HealthService struct {
 	fthealth.HealthCheck
 	gtgChecks []fthealth.Check
-	publisher annotations.Publisher
-	writer annotations.PublishedAnnotationsWriter
+	publisher ExternalService
+	writer    ExternalService
+	draftsRW  ExternalService
 }
 
 // NewHealthService returns a new HealthService
-func NewHealthService(appSystemCode string, appName string, appDescription string, publisher annotations.Publisher, writer annotations.PublishedAnnotationsWriter) *HealthService {
-	service := &HealthService{publisher: publisher, writer: writer}
+func NewHealthService(appSystemCode string, appName string, appDescription string, publisher ExternalService, writer ExternalService, draftsRW ExternalService ) *HealthService {
+	service := &HealthService{publisher: publisher, writer: writer, draftsRW: draftsRW}
 	service.SystemCode = appSystemCode
 	service.Name = appName
 	service.Description = appDescription
 	service.Checks = []fthealth.Check{
 		service.writerCheck(),
 		service.publishCheck(),
+		service.draftsCheck(),
 	}
 	// For GTG, only check the local writer; even if UPP is unhealthy, we should still attempt to publish, and therefore remain ready
 	service.gtgChecks = []fthealth.Check{
@@ -76,6 +82,26 @@ func (service *HealthService) writerHealthChecker() (string, error) {
 		return "PAC annotations writer is not healthy", err
 	}
 	return "PAC annotations writer is healthy", nil
+}
+
+
+func (service *HealthService) draftsCheck() fthealth.Check {
+	return fthealth.Check{
+		ID:               "check-draft-annotations-health",
+		BusinessImpact:   "Annotations cannot be published to UPP",
+		Name:             "Check the PAC draft annotations api service",
+		PanicGuide:       "https://dewey.ft.com/draft-annotations-api.html",
+		Severity:         1,
+		TechnicalSummary: fmt.Sprintf("Api for reading and saving draft annotations is not available at %v", service.draftsRW.Endpoint()),
+		Checker:          service.draftsHealthChecker,
+	}
+}
+
+func (service *HealthService) draftsHealthChecker() (string, error) {
+	if err := service.draftsRW.GTG(); err != nil {
+		return "PAC drafts annotations reader writer is not healthy", err
+	}
+	return "PAC drafts annotations reader writer is healthy", nil
 }
 
 // GTG returns the current gtg status

@@ -39,6 +39,7 @@ Options:
   --app-system-code="annotations-publisher"             System Code of the application ($APP_SYSTEM_CODE)
   --app-name="annotations-publisher"                    Application name ($APP_NAME)
   --port="8080"                                         Port to listen on ($APP_PORT)
+  --draft-annotations-rw-endpoint=""                    Endpoint for saving/reading draft annotations ($DRAFT_ANNOTATIONS_RW_ENDPOINT)
   --annotations-publish-endpoint=""                     Endpoint to publish annotations to UPP ($ANNOTATIONS_PUBLISH_ENDPOINT)
   --annotations-publish-gtg-endpoint=""                 GTG Endpoint for publishing annotations to UPP ($ANNOTATIONS_PUBLISH_GTG_ENDPOINT)
   --annotations-publish-auth=""                         Basic auth to use for publishing annotations, in the format username:password ($ANNOTATIONS_PUBLISH_AUTH)
@@ -85,3 +86,4 @@ At the moment the `/__health` endpoint checks the availability of the UPP Publis
 * Logging requires an `env` app parameter, for all environments other than `local` logs are written to file.
 * When running locally, logs are written to console. If you want to log locally to file, you need to pass in an env parameter that is != `local`.
 * NOTE: `/__build-info` and `/__gtg` endpoints are not logged as they are called every second from varnish/vulcand and this information is not needed in logs/splunk.
+
