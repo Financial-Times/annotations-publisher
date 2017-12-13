@@ -23,7 +23,7 @@ type HealthService struct {
 }
 
 // NewHealthService returns a new HealthService
-func NewHealthService(appSystemCode string, appName string, appDescription string, publisher ExternalService, writer ExternalService, draftsRW ExternalService ) *HealthService {
+func NewHealthService(appSystemCode string, appName string, appDescription string, publisher ExternalService, writer ExternalService, draftsRW ExternalService) *HealthService {
 	service := &HealthService{publisher: publisher, writer: writer, draftsRW: draftsRW}
 	service.SystemCode = appSystemCode
 	service.Name = appName
@@ -83,7 +83,6 @@ func (service *HealthService) writerHealthChecker() (string, error) {
 	}
 	return "PAC annotations writer is healthy", nil
 }
-
 
 func (service *HealthService) draftsCheck() fthealth.Check {
 	return fthealth.Check{
