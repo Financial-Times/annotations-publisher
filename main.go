@@ -14,6 +14,7 @@ import (
 	cli "github.com/jawher/mow.cli"
 	metrics "github.com/rcrowley/go-metrics"
 	log "github.com/sirupsen/logrus"
+	"time"
 )
 
 const appDescription = "PAC Annotations Publisher"
@@ -88,21 +89,32 @@ func main() {
 		EnvVar: "API_YML",
 	})
 
+	httpTimeout := app.String(cli.StringOpt{
+		Name:   "http-timeout",
+		Value:  "8s",
+		Desc:   "http client timeout in seconds",
+		EnvVar: "HTTP_CLIENT_TIMEOUT",
+	})
+
 	log.SetFormatter(&log.JSONFormatter{})
 	log.SetLevel(log.InfoLevel)
 	log.Infof("[Startup] %v is starting", *appSystemCode)
 
 	app.Action = func() {
 		log.Infof("System code: %s, App Name: %s, Port: %s", *appSystemCode, *appName, *port)
-
-		draftAnnotationsRW, err := annotations.NewAnnotationsClient(*draftsEndpoint)
-		publishedAnnotationsRW, err := annotations.NewAnnotationsClient(*writerEndpoint)
+		timeout, err :=time.ParseDuration(*httpTimeout)
+		if err != nil {
+			log.WithError(err).Error("could not parse timeout value")
+			return
+		}
+		draftAnnotationsRW, err := annotations.NewAnnotationsClient(*draftsEndpoint, timeout)
+		publishedAnnotationsRW, err := annotations.NewAnnotationsClient(*writerEndpoint, timeout)
 		if err != nil {
 			log.WithError(err).Error("could not construct writer")
 			return
 		}
-		publisher := annotations.NewPublisher(*originSystemID, draftAnnotationsRW, publishedAnnotationsRW, *annotationsEndpoint, *annotationsAuth, *annotationsGTGEndpoint)
-		healthService := health.NewHealthService(*appSystemCode, *appName, appDescription, publisher, publishedAnnotationsRW)
+		publisher := annotations.NewPublisher(*originSystemID, draftAnnotationsRW, publishedAnnotationsRW, *annotationsEndpoint, *annotationsAuth, *annotationsGTGEndpoint, timeout)
+		healthService := health.NewHealthService(*appSystemCode, *appName, appDescription, publisher, publishedAnnotationsRW, draftAnnotationsRW)
 
 		serveEndpoints(*port, apiYml, publisher, healthService)
 	}

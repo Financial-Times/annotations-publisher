@@ -115,7 +115,7 @@
 			"versionExact": "v1.0.3"
 		},
 		{
-			"checksumSHA1": "ofNmmhhJAxYL1Mh09iq+utdfHIM=",
+			"checksumSHA1": "K0crHygPTP42i1nLKWphSlvOQJw=",
 			"path": "github.com/stretchr/objx",
 			"revision": "1a9d0bb9f541897e62256577b352fdbc1fb4fd94",
 			"revisionTime": "2015-09-28T12:21:52Z"
@@ -127,7 +127,7 @@
 			"revisionTime": "2017-07-05T02:17:15Z"
 		},
 		{
-			"checksumSHA1": "e2e65W/uBm5E7RF/ELKP06rEVUo=",
+			"checksumSHA1": "hs0IfAV4wNExbAXc0aUU9V2SuFc=",
 			"path": "github.com/stretchr/testify/mock",
 			"revision": "2aa2c176b9dab406a6970f6a55f513e8a8c8b18f",
 			"revisionTime": "2017-08-14T20:04:35Z"
