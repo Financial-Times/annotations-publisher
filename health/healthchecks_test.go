@@ -80,13 +80,12 @@ func TestDraftsCheck(t *testing.T) {
 
 func TestDraftAnnotationsFails(t *testing.T) {
 	mockDraftAnnotations := &mockGtg{gtg: errors.New("eek"), endpoint: "/__gtg"}
-	health := NewHealthService("appSystemCode", "appName", "appDescription", &mockGtg{}, &mockGtg{} ,mockDraftAnnotations)
+	health := NewHealthService("appSystemCode", "appName", "appDescription", &mockGtg{}, &mockGtg{}, mockDraftAnnotations)
 
 	msg, err := health.draftsCheck().Checker()
 	assert.Equal(t, "PAC drafts annotations reader writer is not healthy", msg)
 	assert.EqualError(t, err, "eek")
 }
-
 
 func TestHealthServiceHandler(t *testing.T) {
 	mockGtg := &mockGtg{gtg: nil, endpoint: "/__gtg"}

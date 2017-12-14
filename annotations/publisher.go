@@ -47,7 +47,7 @@ func NewPublisher(originSystemID string, draftAnnotationsClient AnnotationsClien
 	log.WithField("endpoint", draftAnnotationsClient.Endpoint()).Info("draft annotations r/w endpoint")
 	log.WithField("endpoint", publishedAnnotationsClient.Endpoint()).Info("published annotations r/w endpoint")
 	log.WithField("endpoint", publishEndpoint).Info("publish endpoint")
-	return &uppPublisher{client: &http.Client{Timeout: timeout,}, originSystemID: originSystemID, draftAnnotationsClient: draftAnnotationsClient, publishedAnnotationsClient: publishedAnnotationsClient, publishEndpoint: publishEndpoint, publishAuth: publishAuth, gtgEndpoint: gtgEndpoint}
+	return &uppPublisher{client: &http.Client{Timeout: timeout}, originSystemID: originSystemID, draftAnnotationsClient: draftAnnotationsClient, publishedAnnotationsClient: publishedAnnotationsClient, publishEndpoint: publishEndpoint, publishAuth: publishAuth, gtgEndpoint: gtgEndpoint}
 }
 
 // Publish sends the annotations to UPP via the configured publishEndpoint. Requests contain X-Origin-System-Id and X-Request-Id and a User-Agent as provided.
@@ -133,17 +133,20 @@ func (a *uppPublisher) PublishFromStore(ctx context.Context, uuid string) error 
 	mlog := log.WithField("transaction_id", txid)
 
 	var draft []Annotation
+	var hash string
 	var published []Annotation
 	var err error
-	if draft, err = a.draftAnnotationsClient.GetAnnotations(ctx, uuid); err == nil {
-		published, err = a.draftAnnotationsClient.SaveAnnotations(ctx, uuid, draft)
+
+	if draft, hash, err = a.draftAnnotationsClient.GetAnnotations(ctx, uuid); err == nil {
+		published, hash, err = a.draftAnnotationsClient.SaveAnnotations(ctx, uuid, hash, draft)
 	}
+
 	if err != nil {
 		mlog.WithError(err).Error("r/w to draft annotations failed")
 		return err
 	}
 
-	_, err = a.publishedAnnotationsClient.SaveAnnotations(ctx, uuid, published)
+	_, _, err = a.publishedAnnotationsClient.SaveAnnotations(ctx, uuid, hash, published)
 	if err != nil {
 		mlog.WithError(err).Error("r/w to published annotations failed")
 		return err

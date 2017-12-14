@@ -3,18 +3,18 @@ package main
 import (
 	"net/http"
 	"os"
+	"time"
 
 	"github.com/Financial-Times/annotations-publisher/annotations"
 	"github.com/Financial-Times/annotations-publisher/health"
 	"github.com/Financial-Times/annotations-publisher/resources"
-	api "github.com/Financial-Times/api-endpoint"
+	"github.com/Financial-Times/api-endpoint"
 	"github.com/Financial-Times/http-handlers-go/httphandlers"
 	status "github.com/Financial-Times/service-status-go/httphandlers"
 	"github.com/husobee/vestigo"
-	cli "github.com/jawher/mow.cli"
-	metrics "github.com/rcrowley/go-metrics"
+	"github.com/jawher/mow.cli"
+	"github.com/rcrowley/go-metrics"
 	log "github.com/sirupsen/logrus"
-	"time"
 )
 
 const appDescription = "PAC Annotations Publisher"
@@ -102,7 +102,7 @@ func main() {
 
 	app.Action = func() {
 		log.Infof("System code: %s, App Name: %s, Port: %s", *appSystemCode, *appName, *port)
-		timeout, err :=time.ParseDuration(*httpTimeout)
+		timeout, err := time.ParseDuration(*httpTimeout)
 		if err != nil {
 			log.WithError(err).Error("could not parse timeout value")
 			return
