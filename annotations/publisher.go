@@ -30,6 +30,7 @@ type Publisher interface {
 	health.ExternalService
 	Publish(ctx context.Context, uuid string, body map[string]interface{}) error
 	PublishFromStore(ctx context.Context, uuid string) error
+	SaveAndPublish(ctx context.Context, uuid string, hash string, body []Annotation) error
 }
 
 type uppPublisher struct {
@@ -156,6 +157,23 @@ func (a *uppPublisher) PublishFromStore(ctx context.Context, uuid string) error 
 		"annotations": published,
 	}
 	err = a.Publish(ctx, uuid, uppPublishBody)
+
+	return err
+}
+
+func (a *uppPublisher) SaveAndPublish(ctx context.Context, uuid string, hash string, body []Annotation) error {
+	txid, _ := tid.GetTransactionIDFromContext(ctx)
+	mlog := log.WithField("transaction_id", txid)
+	var err error
+
+	_, _, err = a.draftAnnotationsClient.SaveAnnotations(ctx, uuid, hash, body)
+
+	if err != nil {
+		mlog.WithError(err).Error("write to draft annotations failed")
+		return err
+	}
+
+	err = a.PublishFromStore(ctx, uuid)
 
 	return err
 }

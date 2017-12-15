@@ -17,15 +17,27 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+const testPublishBody = `[
+	{
+		"predicate": "http://www.ft.com/ontology/annotation/mentions",
+		"id": "http://www.ft.com/thing/0a619d71-9af5-3755-90dd-f789b686c67a"
+	},
+	{
+		"predicate": "http://www.ft.com/ontology/annotation/hasAuthor",
+		"id": "http://www.ft.com/thing/838b3fbe-efbc-3cfe-b5c0-d38c046492a4"
+	}
+]`
+
 func TestPublish(t *testing.T) {
 	r := vestigo.NewRouter()
 	pub := &mockPublisher{}
-	pub.On("Publish", mock.Anything, "a-valid-uuid", mock.Anything).Return(nil)
+	pub.On("SaveAndPublish", mock.Anything, "a-valid-uuid", "hash", mock.Anything).Return(nil)
 
 	r.Post("/drafts/content/:uuid/annotations/publish", Publish(pub))
 
 	w := httptest.NewRecorder()
-	req := httptest.NewRequest("POST", "/drafts/content/a-valid-uuid/annotations/publish", strings.NewReader(`{}`))
+	req := httptest.NewRequest("POST", "/drafts/content/a-valid-uuid/annotations/publish", strings.NewReader(testPublishBody))
+	req.Header.Add(annotations.PreviousDocumentHashHeader, "hash")
 
 	r.ServeHTTP(w, req)
 
@@ -75,12 +87,13 @@ func TestRequestHasNoUUID(t *testing.T) {
 func TestPublishFailed(t *testing.T) {
 	r := vestigo.NewRouter()
 	pub := &mockPublisher{}
-	pub.On("Publish", mock.Anything, "a-valid-uuid", mock.Anything).Return(errors.New("eek"))
+	pub.On("SaveAndPublish", mock.Anything, "a-valid-uuid", "hash", mock.Anything).Return(errors.New("eek"))
 
 	r.Post("/drafts/content/:uuid/annotations/publish", Publish(pub))
 
 	w := httptest.NewRecorder()
-	req := httptest.NewRequest("POST", "/drafts/content/a-valid-uuid/annotations/publish", strings.NewReader(`{}`))
+	req := httptest.NewRequest("POST", "/drafts/content/a-valid-uuid/annotations/publish", strings.NewReader(testPublishBody))
+	req.Header.Add(annotations.PreviousDocumentHashHeader, "hash")
 
 	r.ServeHTTP(w, req)
 
@@ -95,12 +108,13 @@ func TestPublishFailed(t *testing.T) {
 func TestPublishAuthenticationInvalid(t *testing.T) {
 	r := vestigo.NewRouter()
 	pub := &mockPublisher{}
-	pub.On("Publish", mock.Anything, "a-valid-uuid", mock.Anything).Return(annotations.ErrInvalidAuthentication)
+	pub.On("SaveAndPublish", mock.Anything, "a-valid-uuid", "hash", mock.Anything).Return(annotations.ErrInvalidAuthentication)
 
 	r.Post("/drafts/content/:uuid/annotations/publish", Publish(pub))
 
 	w := httptest.NewRecorder()
-	req := httptest.NewRequest("POST", "/drafts/content/a-valid-uuid/annotations/publish", strings.NewReader(`{}`))
+	req := httptest.NewRequest("POST", "/drafts/content/a-valid-uuid/annotations/publish", strings.NewReader(testPublishBody))
+	req.Header.Add(annotations.PreviousDocumentHashHeader, "hash")
 
 	r.ServeHTTP(w, req)
 
@@ -198,6 +212,11 @@ func (m *mockPublisher) Publish(ctx context.Context, uuid string, body map[strin
 
 func (m *mockPublisher) PublishFromStore(ctx context.Context, uuid string) error {
 	args := m.Called(ctx, uuid)
+	return args.Error(0)
+}
+
+func (m *mockPublisher) SaveAndPublish(ctx context.Context, uuid string, hash string, body []annotations.Annotation) error {
+	args := m.Called(ctx, uuid, hash, body)
 	return args.Error(0)
 }
 
