@@ -65,7 +65,6 @@ func TestBodyNotJSON(t *testing.T) {
 	pub.AssertExpectations(t)
 }
 
-
 func TestBodyAndFromStoreTrue(t *testing.T) {
 	r := vestigo.NewRouter()
 	pub := &mockPublisher{}
@@ -102,7 +101,6 @@ func TestPublishNoHashHeader(t *testing.T) {
 
 	pub.AssertExpectations(t)
 }
-
 
 func TestRequestHasNoUUID(t *testing.T) {
 	r := vestigo.NewRouter()

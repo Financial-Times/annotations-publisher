@@ -53,7 +53,7 @@ func Publish(publisher annotations.Publisher) func(w http.ResponseWriter, r *htt
 			publishFromStore(ctx, publisher, uuid, w)
 		} else {
 			json.Unmarshal(bodyBytes, &body)
-			if err != nil || body==nil{
+			if err != nil || body == nil {
 				mlog.WithField("reason", err).Warn("Failed to unmarshall publish body")
 				writeMsg(w, http.StatusBadRequest, "Failed to process request json. Please provide a valid json request body")
 				return
