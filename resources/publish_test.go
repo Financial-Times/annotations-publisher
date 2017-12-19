@@ -65,6 +65,45 @@ func TestBodyNotJSON(t *testing.T) {
 	pub.AssertExpectations(t)
 }
 
+
+func TestBodyAndFromStoreTrue(t *testing.T) {
+	r := vestigo.NewRouter()
+	pub := &mockPublisher{}
+
+	r.Post("/drafts/content/:uuid/annotations/publish", Publish(pub))
+
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest("POST", "/drafts/content/a-valid-uuid/annotations/publish?fromStore=true", strings.NewReader(testPublishBody))
+	req.Header.Add(annotations.PreviousDocumentHashHeader, "hash")
+
+	r.ServeHTTP(w, req)
+
+	resp, err := marshal(w.Body)
+	require.NoError(t, err)
+	assert.Equal(t, http.StatusBadRequest, w.Code)
+	assert.Equal(t, "A request body cannot be provided when fromStore=true", resp["message"])
+
+	pub.AssertExpectations(t)
+}
+
+func TestPublishNoHashHeader(t *testing.T) {
+	r := vestigo.NewRouter()
+	pub := &mockPublisher{}
+	pub.On("SaveAndPublish", mock.Anything, "a-valid-uuid", "", mock.Anything).Return(nil)
+
+	r.Post("/drafts/content/:uuid/annotations/publish", Publish(pub))
+
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest("POST", "/drafts/content/a-valid-uuid/annotations/publish", strings.NewReader(testPublishBody))
+
+	r.ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusAccepted, w.Code)
+
+	pub.AssertExpectations(t)
+}
+
+
 func TestRequestHasNoUUID(t *testing.T) {
 	r := vestigo.NewRouter()
 	pub := &mockPublisher{}
