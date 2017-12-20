@@ -31,7 +31,7 @@ func Publish(publisher annotations.Publisher) func(w http.ResponseWriter, r *htt
 		hash := r.Header.Get(annotations.PreviousDocumentHashHeader)
 		log.WithFields(log.Fields{"transaction_id": txid, "uuid": uuid, "fromStore": fromStore}).Info("publish")
 
-		var body []annotations.Annotation
+		var body annotations.AnnotationsBody
 
 		bodyBytes, err := ioutil.ReadAll(r.Body)
 		if err != nil {
@@ -53,7 +53,7 @@ func Publish(publisher annotations.Publisher) func(w http.ResponseWriter, r *htt
 			publishFromStore(ctx, publisher, uuid, w)
 		} else {
 			json.Unmarshal(bodyBytes, &body)
-			if err != nil || body == nil {
+			if err != nil || len(body.Annotations) == 0 {
 				mlog.WithField("reason", err).Warn("Failed to unmarshall publish body")
 				writeMsg(w, http.StatusBadRequest, "Failed to process request json. Please provide a valid json request body")
 				return
@@ -63,7 +63,7 @@ func Publish(publisher annotations.Publisher) func(w http.ResponseWriter, r *htt
 	}
 }
 
-func saveAndPublish(ctx context.Context, publisher annotations.Publisher, uuid string, hash string, w http.ResponseWriter, body []annotations.Annotation) {
+func saveAndPublish(ctx context.Context, publisher annotations.Publisher, uuid string, hash string, w http.ResponseWriter, body annotations.AnnotationsBody) {
 	txid, _ := tid.GetTransactionIDFromContext(ctx)
 	mlog := log.WithField(tid.TransactionIDKey, txid)
 

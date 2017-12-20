@@ -17,7 +17,9 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-const testPublishBody = `[
+const testPublishBody = `
+{
+  "annotations":[
 	{
 		"predicate": "http://www.ft.com/ontology/annotation/mentions",
 		"id": "http://www.ft.com/thing/0a619d71-9af5-3755-90dd-f789b686c67a"
@@ -26,7 +28,15 @@ const testPublishBody = `[
 		"predicate": "http://www.ft.com/ontology/annotation/hasAuthor",
 		"id": "http://www.ft.com/thing/838b3fbe-efbc-3cfe-b5c0-d38c046492a4"
 	}
-]`
+]
+}`
+
+const testJsonUnMarshallError = `
+	{
+		"predicate": "http://www.ft.com/ontology/annotation/mentions",
+		"id": "http://www.ft.com/thing/0a619d71-9af5-3755-90dd-f789b686c67a"
+	}
+}`
 
 func TestPublish(t *testing.T) {
 	r := vestigo.NewRouter()
@@ -252,7 +262,7 @@ func (m *mockPublisher) PublishFromStore(ctx context.Context, uuid string) error
 	return args.Error(0)
 }
 
-func (m *mockPublisher) SaveAndPublish(ctx context.Context, uuid string, hash string, body []annotations.Annotation) error {
+func (m *mockPublisher) SaveAndPublish(ctx context.Context, uuid string, hash string, body annotations.AnnotationsBody) error {
 	args := m.Called(ctx, uuid, hash, body)
 	return args.Error(0)
 }

@@ -30,7 +30,7 @@ type Publisher interface {
 	health.ExternalService
 	Publish(ctx context.Context, uuid string, body map[string]interface{}) error
 	PublishFromStore(ctx context.Context, uuid string) error
-	SaveAndPublish(ctx context.Context, uuid string, hash string, body []Annotation) error
+	SaveAndPublish(ctx context.Context, uuid string, hash string, body AnnotationsBody) error
 }
 
 type uppPublisher struct {
@@ -133,9 +133,9 @@ func (a *uppPublisher) PublishFromStore(ctx context.Context, uuid string) error 
 	txid, _ := tid.GetTransactionIDFromContext(ctx)
 	mlog := log.WithField("transaction_id", txid)
 
-	var draft []Annotation
+	var draft AnnotationsBody
 	var hash string
-	var published []Annotation
+	var published AnnotationsBody
 	var err error
 
 	if draft, hash, err = a.draftAnnotationsClient.GetAnnotations(ctx, uuid); err == nil {
@@ -161,7 +161,7 @@ func (a *uppPublisher) PublishFromStore(ctx context.Context, uuid string) error 
 	return err
 }
 
-func (a *uppPublisher) SaveAndPublish(ctx context.Context, uuid string, hash string, body []Annotation) error {
+func (a *uppPublisher) SaveAndPublish(ctx context.Context, uuid string, hash string, body AnnotationsBody) error {
 	txid, _ := tid.GetTransactionIDFromContext(ctx)
 	mlog := log.WithField("transaction_id", txid)
 	var err error

@@ -23,14 +23,14 @@ type mockAnnotationsClient struct {
 	mock.Mock
 }
 
-func (m *mockAnnotationsClient) GetAnnotations(ctx context.Context, uuid string) ([]Annotation, string, error) {
+func (m *mockAnnotationsClient) GetAnnotations(ctx context.Context, uuid string) (AnnotationsBody, string, error) {
 	args := m.Called(ctx, uuid)
-	return args.Get(0).([]Annotation), args.String(1), args.Error(2)
+	return args.Get(0).(AnnotationsBody), args.String(1), args.Error(2)
 }
 
-func (m *mockAnnotationsClient) SaveAnnotations(ctx context.Context, uuid string, hash string, data []Annotation) ([]Annotation, string, error) {
+func (m *mockAnnotationsClient) SaveAnnotations(ctx context.Context, uuid string, hash string, data AnnotationsBody) (AnnotationsBody, string, error) {
 	args := m.Called(ctx, uuid, hash, data)
-	return args.Get(0).([]Annotation), args.String(1), args.Error(2)
+	return args.Get(0).(AnnotationsBody), args.String(1), args.Error(2)
 }
 
 func (m *mockAnnotationsClient) GTG() error {
@@ -201,11 +201,12 @@ func TestPublisherGTGInvalidURL(t *testing.T) {
 
 func TestPublishFromStore(t *testing.T) {
 	uuid := uuid.New()
-	testAnnotations := []Annotation{
+	testAnnotations := AnnotationsBody{[]Annotation{
 		{
 			Predicate: "foo",
 			ConceptId: "bar",
 		},
+	},
 	}
 	testHash := "hashhashhashhash"
 	updatedHash := "newhashnewhash"
@@ -234,7 +235,7 @@ func TestPublishFromStoreNotFound(t *testing.T) {
 	uuid := uuid.New()
 
 	draftAnnotationsClient := &mockAnnotationsClient{}
-	draftAnnotationsClient.On("GetAnnotations", mock.Anything, uuid).Return([]Annotation{}, "", ErrDraftNotFound)
+	draftAnnotationsClient.On("GetAnnotations", mock.Anything, uuid).Return(AnnotationsBody{}, "", ErrDraftNotFound)
 	publishedAnnotationsClient := &mockAnnotationsClient{}
 	publisher := NewPublisher("originSystemID", draftAnnotationsClient, publishedAnnotationsClient, "http://www.example.com/notify", "user:pass", "http://www.example.com/__gtg", timeout)
 
@@ -252,7 +253,7 @@ func TestPublishFromStoreGetDraftsFails(t *testing.T) {
 
 	draftAnnotationsClient := &mockAnnotationsClient{}
 	publishedAnnotationsClient := &mockAnnotationsClient{}
-	draftAnnotationsClient.On("GetAnnotations", mock.Anything, uuid).Return([]Annotation{}, "", errors.New(msg))
+	draftAnnotationsClient.On("GetAnnotations", mock.Anything, uuid).Return(AnnotationsBody{}, "", errors.New(msg))
 	publisher := NewPublisher("originSystemID", draftAnnotationsClient, publishedAnnotationsClient, "http://www.example.com/notify", "user:pass", "http://www.example.com/__gtg", timeout)
 
 	ctx := tid.TransactionAwareContext(context.Background(), "tid_test")
@@ -266,18 +267,19 @@ func TestPublishFromStoreGetDraftsFails(t *testing.T) {
 func TestPublishFromStoreSaveDraftFails(t *testing.T) {
 	msg := "test error"
 	uuid := uuid.New()
-	testAnnotations := []Annotation{
+	testAnnotations := AnnotationsBody{[]Annotation{
 		{
 			Predicate: "foo",
 			ConceptId: "bar",
 		},
+	},
 	}
 
 	testHash := "hashhashhashhash"
 
 	draftAnnotationsClient := &mockAnnotationsClient{}
 	draftAnnotationsClient.On("GetAnnotations", mock.Anything, uuid).Return(testAnnotations, testHash, nil)
-	draftAnnotationsClient.On("SaveAnnotations", mock.Anything, uuid, testHash, testAnnotations).Return([]Annotation{}, "", errors.New(msg))
+	draftAnnotationsClient.On("SaveAnnotations", mock.Anything, uuid, testHash, testAnnotations).Return(AnnotationsBody{}, "", errors.New(msg))
 
 	publishedAnnotationsClient := &mockAnnotationsClient{}
 
@@ -297,13 +299,13 @@ func TestPublishFromStoreSaveDraftFails(t *testing.T) {
 func TestPublishFromStoreSavePublishedFails(t *testing.T) {
 	msg := "test error"
 	uuid := uuid.New()
-	testAnnotations := []Annotation{
+	testAnnotations := AnnotationsBody{[]Annotation{
 		{
 			Predicate: "foo",
 			ConceptId: "bar",
 		},
+	},
 	}
-
 	testHash := "hashhashhashhash"
 	updatedHash := "newhashnewhash"
 
@@ -312,7 +314,7 @@ func TestPublishFromStoreSavePublishedFails(t *testing.T) {
 	draftAnnotationsClient.On("SaveAnnotations", mock.Anything, uuid, testHash, testAnnotations).Return(testAnnotations, updatedHash, nil)
 
 	publishedAnnotationsClient := &mockAnnotationsClient{}
-	publishedAnnotationsClient.On("SaveAnnotations", mock.Anything, uuid, updatedHash, testAnnotations).Return([]Annotation{}, "", errors.New(msg))
+	publishedAnnotationsClient.On("SaveAnnotations", mock.Anything, uuid, updatedHash, testAnnotations).Return(AnnotationsBody{}, "", errors.New(msg))
 
 	ctx := tid.TransactionAwareContext(context.Background(), "tid_test")
 	server := startMockServer(t, ctx, uuid, true, true)
@@ -329,11 +331,12 @@ func TestPublishFromStoreSavePublishedFails(t *testing.T) {
 
 func TestPublishFromStorePublishFails(t *testing.T) {
 	uuid := uuid.New()
-	testAnnotations := []Annotation{
+	testAnnotations := AnnotationsBody{[]Annotation{
 		{
 			Predicate: "foo",
 			ConceptId: "bar",
 		},
+	},
 	}
 
 	draftAnnotationsClient := &mockAnnotationsClient{}
