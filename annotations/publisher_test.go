@@ -359,6 +359,74 @@ func TestPublishFromStorePublishFails(t *testing.T) {
 	publishedAnnotationsClient.AssertExpectations(t)
 }
 
+func TestSaveAndPublish(t *testing.T) {
+	uuid := uuid.New()
+	testAnnotations := AnnotationsBody{[]Annotation{
+		{
+			Predicate: "foo",
+			ConceptId: "bar",
+		},
+	},
+	}
+	testHash := "hashhashhashhash"
+	updatedHash := "newhashnewhash"
+	ctx := tid.TransactionAwareContext(context.Background(), "tid_test")
+
+	draftAnnotationsClient := &mockAnnotationsClient{}
+	draftAnnotationsClient.On("GetAnnotations", mock.Anything, uuid).Return(testAnnotations, updatedHash, nil)
+	draftAnnotationsClient.On("SaveAnnotations", mock.Anything, uuid, testHash, testAnnotations).Return(testAnnotations, updatedHash, nil)
+	draftAnnotationsClient.On("SaveAnnotations", mock.Anything, uuid, updatedHash, testAnnotations).Return(testAnnotations, updatedHash, nil)
+
+	publishedAnnotationsClient := &mockAnnotationsClient{}
+	publishedAnnotationsClient.On("SaveAnnotations", mock.Anything, uuid, updatedHash, testAnnotations).Return(testAnnotations, updatedHash, nil)
+
+	server := startMockServer(t, ctx, uuid, true, true)
+	defer server.Close()
+
+	publisher := NewPublisher("originSystemID", draftAnnotationsClient, publishedAnnotationsClient, server.URL+"/notify", "user:pass", "http://www.example.com/__gtg", timeout)
+
+	err := publisher.SaveAndPublish(ctx, uuid, testHash, testAnnotations)
+	assert.NoError(t, err)
+
+	draftAnnotationsClient.AssertExpectations(t)
+	publishedAnnotationsClient.AssertExpectations(t)
+}
+
+func TestSaveAndPublishNotFound(t *testing.T) {
+	uuid := uuid.New()
+	testHash := "hashhashhashhash"
+	testAnnotations := AnnotationsBody{[]Annotation{
+		{
+			Predicate: "foo",
+			ConceptId: "bar",
+		},
+	},
+	}
+
+	draftAnnotationsClient := &mockAnnotationsClient{}
+	draftAnnotationsClient.On("SaveAnnotations", mock.Anything, uuid, testHash, testAnnotations).Return(AnnotationsBody{}, "", ErrDraftNotFound)
+	publishedAnnotationsClient := &mockAnnotationsClient{}
+	publisher := NewPublisher("originSystemID", draftAnnotationsClient, publishedAnnotationsClient, "http://www.example.com/notify", "user:pass", "http://www.example.com/__gtg", timeout)
+
+	ctx := tid.TransactionAwareContext(context.Background(), "tid_test")
+	err := publisher.SaveAndPublish(ctx, uuid, testHash, testAnnotations)
+	assert.EqualError(t, err, ErrDraftNotFound.Error())
+
+	draftAnnotationsClient.AssertExpectations(t)
+	publishedAnnotationsClient.AssertExpectations(t)
+}
+
+
+
+
+
+
+
+
+
+
+
+
 func startMockServer(t *testing.T, ctx context.Context, uuid string, publishOk bool, gtgOk bool) *httptest.Server {
 	r := vestigo.NewRouter()
 	r.Get("/__gtg", func(w http.ResponseWriter, r *http.Request) {

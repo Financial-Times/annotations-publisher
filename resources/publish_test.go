@@ -19,16 +19,16 @@ import (
 
 const testPublishBody = `
 {
-  "annotations":[
-	{
-		"predicate": "http://www.ft.com/ontology/annotation/mentions",
-		"id": "http://www.ft.com/thing/0a619d71-9af5-3755-90dd-f789b686c67a"
-	},
-	{
-		"predicate": "http://www.ft.com/ontology/annotation/hasAuthor",
-		"id": "http://www.ft.com/thing/838b3fbe-efbc-3cfe-b5c0-d38c046492a4"
-	}
-]
+	"annotations":[
+		{
+			"predicate": "http://www.ft.com/ontology/annotation/mentions",
+			"id": "http://www.ft.com/thing/0a619d71-9af5-3755-90dd-f789b686c67a"
+		},
+		{
+			"predicate": "http://www.ft.com/ontology/annotation/hasAuthor",
+			"id": "http://www.ft.com/thing/838b3fbe-efbc-3cfe-b5c0-d38c046492a4"
+		}
+	]
 }`
 
 const testJsonUnMarshallError = `
@@ -37,6 +37,10 @@ const testJsonUnMarshallError = `
 		"id": "http://www.ft.com/thing/0a619d71-9af5-3755-90dd-f789b686c67a"
 	}
 }`
+
+type failingReader struct {
+	err error
+}
 
 func TestPublish(t *testing.T) {
 	r := vestigo.NewRouter()
@@ -75,14 +79,38 @@ func TestBodyNotJSON(t *testing.T) {
 	pub.AssertExpectations(t)
 }
 
-func TestBodyAndFromStoreTrue(t *testing.T) {
+
+
+func TestPublishNotFound(t *testing.T) {
+	r := vestigo.NewRouter()
+	pub := &mockPublisher{}
+	pub.On("SaveAndPublish", mock.Anything, "a-valid-uuid","hash",mock.Anything).Return(annotations.ErrDraftNotFound)
+
+	r.Post("/drafts/content/:uuid/annotations/publish", Publish(pub))
+
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest("POST", "/drafts/content/a-valid-uuid/annotations/publish", strings.NewReader(testPublishBody))
+	req.Header.Add(annotations.PreviousDocumentHashHeader, "hash")
+
+	r.ServeHTTP(w, req)
+
+	resp, err := marshal(w.Body)
+	require.NoError(t, err)
+	assert.Equal(t, http.StatusNotFound, w.Code)
+	assert.Equal(t, annotations.ErrDraftNotFound.Error(), strings.ToLower(resp["message"].(string)))
+
+	pub.AssertExpectations(t)
+}
+
+
+func TestPublishMissingBody(t *testing.T) {
 	r := vestigo.NewRouter()
 	pub := &mockPublisher{}
 
 	r.Post("/drafts/content/:uuid/annotations/publish", Publish(pub))
 
 	w := httptest.NewRecorder()
-	req := httptest.NewRequest("POST", "/drafts/content/a-valid-uuid/annotations/publish?fromStore=true", strings.NewReader(testPublishBody))
+	req := httptest.NewRequest("POST", "/drafts/content/a-valid-uuid/annotations/publish", nil)
 	req.Header.Add(annotations.PreviousDocumentHashHeader, "hash")
 
 	r.ServeHTTP(w, req)
@@ -90,10 +118,39 @@ func TestBodyAndFromStoreTrue(t *testing.T) {
 	resp, err := marshal(w.Body)
 	require.NoError(t, err)
 	assert.Equal(t, http.StatusBadRequest, w.Code)
-	assert.Equal(t, "A request body cannot be provided when fromStore=true", resp["message"])
+	assert.Equal(t, "Please provide a valid json request body", resp["message"])
 
 	pub.AssertExpectations(t)
 }
+
+
+
+func (f *failingReader) Read(p []byte) (n int, err error) {
+	return 0, f.err
+}
+
+func TestPublishBodyReadFail(t *testing.T) {
+	r := vestigo.NewRouter()
+	pub := &mockPublisher{}
+
+	r.Post("/drafts/content/:uuid/annotations/publish", Publish(pub))
+
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest("POST", "/drafts/content/a-valid-uuid/annotations/publish", &failingReader{err: errors.New("Failed to read request body. Please provide a valid json request body")})
+
+	req.Header.Add(annotations.PreviousDocumentHashHeader, "hash")
+
+
+	r.ServeHTTP(w, req)
+
+	resp, err := marshal(w.Body)
+	require.NoError(t, err)
+	assert.Equal(t, http.StatusBadRequest, w.Code)
+	assert.Equal(t, "Failed to read request body. Please provide a valid json request body", resp["message"])
+
+	pub.AssertExpectations(t)
+}
+
 
 func TestPublishNoHashHeader(t *testing.T) {
 	r := vestigo.NewRouter()
@@ -212,6 +269,27 @@ func TestPublishFromStoreNotFound(t *testing.T) {
 
 	pub.AssertExpectations(t)
 }
+
+func TestPublishFromStoreTrueWithBody(t *testing.T) {
+	r := vestigo.NewRouter()
+	pub := &mockPublisher{}
+
+	r.Post("/drafts/content/:uuid/annotations/publish", Publish(pub))
+
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest("POST", "/drafts/content/a-valid-uuid/annotations/publish?fromStore=true", strings.NewReader(testPublishBody))
+	req.Header.Add(annotations.PreviousDocumentHashHeader, "hash")
+
+	r.ServeHTTP(w, req)
+
+	resp, err := marshal(w.Body)
+	require.NoError(t, err)
+	assert.Equal(t, http.StatusBadRequest, w.Code)
+	assert.Equal(t, "A request body cannot be provided when fromStore=true", resp["message"])
+
+	pub.AssertExpectations(t)
+}
+
 
 func TestPublishFromStoreFails(t *testing.T) {
 	r := vestigo.NewRouter()
