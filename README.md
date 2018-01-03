@@ -45,6 +45,7 @@ Options:
   --annotations-publish-auth=""                         Basic auth to use for publishing annotations, in the format username:password ($ANNOTATIONS_PUBLISH_AUTH)
   --origin-system-id="http://cmdb.ft.com/systems/pac"   The system this publish originated from ($ORIGIN_SYSTEM_ID)
   --api-yml="./api.yml"                                 Location of the API Swagger YML file. ($API_YML)
+  --http-timeout=""                                     http client timeout in seconds
 ```
 
 3. Test:
@@ -63,8 +64,35 @@ curl http://localhost:8080/__health | jq
 For a full description of API endpoints for the service, please see the [Open API specification](./api/api.yml).
 
 ### POST
+####Publish with Body####
+this end point saves latest version  annotations version to to pac draft annotations collection and pac published annotations collection followed by a publish to UPP
 
-Currently, this endpoint will publish annotations directly to UPP.
+example POST body:  
+
+```
+{
+      "annotations":[
+      {
+        "predicate": "http://www.ft.com/ontology/annotation/hasContributor",
+        "id": "http://www.ft.com/thing/5bd49568-6d7c-3c10-a5b0-2f3fd5974a6b",
+      },
+      {
+        "predicate": "http://www.ft.com/ontology/annotation/about",
+        "id": "http://www.ft.com/thing/d7de27f8-1633-3fcc-b308-c95a2ad7d1cd",
+      },
+      {
+        "predicate": "http://www.ft.com/ontology/annotation/hasDisplayTag",
+        "id": "http://www.ft.com/thing/d7de27f8-1633-3fcc-b308-c95a2ad7d1cd",
+      }
+    ]
+}
+```
+
+####Publish from Store####
+Query parameter boolean fromStore=  
+With the parameter fromStore=true the call will get the latest annotations version from draft annotations then save to pac published annotations followed by a publish to upp
+
+No Body required  
 
 ```
 curl http://localhost:8080/draft/content/b7b871f6-8a89-11e4-8e24-00144feabdc0/annotations/publish -XPOST --data '{}'
