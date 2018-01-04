@@ -154,7 +154,7 @@ func (a *uppPublisher) PublishFromStore(ctx context.Context, uuid string) error 
 	}
 
 	uppPublishBody := map[string]interface{}{
-		"annotations": published,
+		"annotations": published.Annotations,
 	}
 	err = a.Publish(ctx, uuid, uppPublishBody)
 
