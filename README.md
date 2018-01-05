@@ -68,12 +68,10 @@ For a full description of API endpoints for the service, please see the [Open AP
 
 This end point saves latest annotations version to to pac draft annotations collection and pac published annotations collection followed by a publish to UPP
 
-curl http://localhost:8080/draft/content/b7b871f6-8a89-11e4-8e24-00144feabdc0/annotations/publish -XPOST --data '{}' -H "Previous-Document-Hash:hashvalue"
-
 Note currently if hash value is empty the request will succeed.
 
-example POST body:  
-
+curl http://localhost:8080/draft/content/b7b871f6-8a89-11e4-8e24-00144feabdc0/annotations/publish -XPOST -H "Previous-Document-Hash:hashvalue" --data
+'{  
 ```
 {
       "annotations":[
@@ -92,6 +90,8 @@ example POST body:
     ]
 }
 ```
+}'
+
 
 ####Publish from Store####
 Query parameter boolean fromStore=  
