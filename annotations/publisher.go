@@ -164,16 +164,11 @@ func (a *uppPublisher) PublishFromStore(ctx context.Context, uuid string) error 
 func (a *uppPublisher) SaveAndPublish(ctx context.Context, uuid string, hash string, body AnnotationsBody) error {
 	txid, _ := tid.GetTransactionIDFromContext(ctx)
 	mlog := log.WithField("transaction_id", txid)
-	var err error
-
-	_, _, err = a.draftAnnotationsClient.SaveAnnotations(ctx, uuid, hash, body)
+	_, _, err := a.draftAnnotationsClient.SaveAnnotations(ctx, uuid, hash, body)
 
 	if err != nil {
 		mlog.WithError(err).Error("write to draft annotations failed")
 		return err
 	}
-
-	err = a.PublishFromStore(ctx, uuid)
-
-	return err
+	return  a.PublishFromStore(ctx, uuid)
 }

@@ -48,7 +48,6 @@ func Publish(publisher annotations.Publisher) func(w http.ResponseWriter, r *htt
 			writeMsg(w, http.StatusBadRequest, "Please provide a valid json request body")
 			return
 		}
-		//	err := json.NewDecoder(r.Body).Decode(&body)
 		if fromStore {
 			publishFromStore(ctx, publisher, uuid, w)
 		} else {
