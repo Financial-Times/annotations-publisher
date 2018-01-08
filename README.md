@@ -45,6 +45,7 @@ Options:
   --annotations-publish-auth=""                         Basic auth to use for publishing annotations, in the format username:password ($ANNOTATIONS_PUBLISH_AUTH)
   --origin-system-id="http://cmdb.ft.com/systems/pac"   The system this publish originated from ($ORIGIN_SYSTEM_ID)
   --api-yml="./api.yml"                                 Location of the API Swagger YML file. ($API_YML)
+  --http-timeout="8s"                                     http client timeout in seconds
 ```
 
 3. Test:
@@ -63,12 +64,41 @@ curl http://localhost:8080/__health | jq
 For a full description of API endpoints for the service, please see the [Open API specification](./api/api.yml).
 
 ### POST
+####Publish with Body####
 
-Currently, this endpoint will publish annotations directly to UPP.
+This endpoint saves the provided annotations to the PAC database (within the draft and published annotations collections), and will subsequently publish the annotations to UPP.
+N.B.: Currently, if the hash value is empty, the request will succeed anyway. This may change in the future.
+
+curl http://localhost:8080/draft/content/b7b871f6-8a89-11e4-8e24-00144feabdc0/annotations/publish -XPOST -H "Previous-Document-Hash:hashvalue" --data
+'{
+```
+{
+      "annotations":[
+      {
+        "predicate": "http://www.ft.com/ontology/annotation/hasContributor",
+        "id": "http://www.ft.com/thing/5bd49568-6d7c-3c10-a5b0-2f3fd5974a6b",
+      },
+      {
+        "predicate": "http://www.ft.com/ontology/annotation/about",
+        "id": "http://www.ft.com/thing/d7de27f8-1633-3fcc-b308-c95a2ad7d1cd",
+      },
+      {
+        "predicate": "http://www.ft.com/ontology/annotation/hasDisplayTag",
+        "id": "http://www.ft.com/thing/d7de27f8-1633-3fcc-b308-c95a2ad7d1cd",
+      }
+    ]
+}
+```
+}'
+
+
+####Publish from Store####
 
 ```
-curl http://localhost:8080/draft/content/b7b871f6-8a89-11e4-8e24-00144feabdc0/annotations/publish -XPOST --data '{}'
+curl http://localhost:8080/draft/content/b7b871f6-8a89-11e4-8e24-00144feabdc0/annotations/publish?fromStore=true -XPOST
 ```
+
+By removing the request body, and setting the query parameter fromStore=true, a POST to the same endpoint will first retrieve the latest annotations from the PAC database, persist them to the PAC database published collection, and then publish to UPP.
 
 ## Healthchecks
 

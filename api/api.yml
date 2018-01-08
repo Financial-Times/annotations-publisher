@@ -1,5 +1,4 @@
-swagger: "2.0"
-
+swagger: '2.0'
 info:
   title: Annotations Publisher
   description: Publishes annotations to UPP from PAC
@@ -9,18 +8,16 @@ info:
   contact:
     name: Universal Publishing
     email: universal.publishing@ft.com
-
 host: api.ft.com
-basePath: "/"
+basePath: /
 schemes:
   - http
   - https
-
 paths:
-  /drafts/content/{uuid}/annotations/publish:
+  '/drafts/content/{uuid}/annotations/publish':
     post:
       summary: Publish Annotations for Content
-      description: Accepts annotations in an array, and publishes them to UPP
+      description: 'Accepts annotations in an array, and publishes them to UPP'
       tags:
         - Public API
       produces:
@@ -36,14 +33,12 @@ paths:
           x-example: 0620cfe1-e7ee-44d6-918e-e5ca278d2245
         - name: annotations
           in: body
-          required: true
-          description: An array of PAC style annotations to publish to UPP
+          required: false
+          description: >-
+            An array of PAC style annotations to publish to UPP. Is required if not publishing from store (see fromStore parameter)
           schema:
             type: object
             properties:
-              submittedBy:
-                type: string
-                x-example: john.smith
               annotations:
                 type: array
                 items:
@@ -51,28 +46,42 @@ paths:
                   properties:
                     id:
                       type: string
-                      x-example: http://www.ft.com/thing/5bd49568-6d7c-3c10-a5b0-2f3fd5974a6b
+                      x-example: >-
+                        http://www.ft.com/thing/5bd49568-6d7c-3c10-a5b0-2f3fd5974a6b
                     predicate:
                       type: string
-                      x-example: http://www.ft.com/ontology/hasContributor
+                      x-example: 'http://www.ft.com/ontology/hasContributor'
             example:
-              submittedBy: john.smith
               annotations:
-                - id: http://www.ft.com/thing/5bd49568-6d7c-3c10-a5b0-2f3fd5974a6b
-                  predicate: http://www.ft.com/ontology/hasContributor
+                - id: 'http://www.ft.com/thing/5bd49568-6d7c-3c10-a5b0-2f3fd5974a6b'
+                  predicate: 'http://www.ft.com/ontology/hasContributor'
+        - name: fromStore
+          in: query
+          required: false
+          description: >-
+            Indicates the source of annotations to publish is from store. Body
+            should NOT be included with this parameter
+          type: boolean
       responses:
-        202:
-          description: The annotations have been accepted for publishing by UPP. N.B. this does not guarantee that the annotations will publish successfully.
+        '202':
+          description: >-
+            The annotations have been accepted for publishing by UPP. N.B. this
+            does not guarantee that the annotations will publish successfully.
           examples:
             application/json:
               message: Publish accepted
-        400:
-          description: The UUID specified in the path is invalid, or the request body is not in a valid JSON format.
+        '400':
+          description: >-
+            The UUID specified in the path is invalid, or the request body is
+            not in a valid JSON format or missing body from publish with body or
+            body is present with fromStore=true request parameter.
           examples:
             application/json:
-              message: Please specify a valid uuid in the request
-        503:
-          description: A failure occurred while attempting to publish to UPP. Please check the `/__health` endpoint and try again.
+              message: see reason here
+        '503':
+          description: >-
+            A failure occurred while attempting to publish to UPP. Please check
+            the `/__health` endpoint and try again.
           examples:
             application/json:
               message: Failed to publish to UPP
@@ -85,11 +94,12 @@ paths:
       tags:
         - Health
       responses:
-        200:
+        '200':
           description: >
-            Should always return 200 along with the output of the healthchecks - regardless
-            of whether the healthchecks failed or not.
-            Please inspect the overall ok property to see whether or not the application is healthy.
+            Should always return 200 along with the output of the healthchecks -
+            regardless of whether the healthchecks failed or not. Please inspect
+            the overall ok property to see whether or not the application is
+            healthy.
           examples:
             application/json:
               schemaVersion: 1
@@ -103,9 +113,9 @@ paths:
                   severity: 1
                   businessImpact: A business impact this failure might have
                   technicalSummary: A technical description of what's gone wrong
-                  panicGuide: https://dewey.ft.com/dewey-system-code.html
+                  panicGuide: 'https://dewey.ft.com/dewey-system-code.html'
                   checkOutput: Technical output from the check
-                  lastUpdated: 2017-08-03T10:44:32.324709638+01:00
+                  lastUpdated: 2017-08-03T09:44:32.324Z
               ok: true
   /__build-info:
     get:
@@ -118,29 +128,34 @@ paths:
       tags:
         - Info
       responses:
-        200:
+        '200':
           description: Outputs build information as described in the summary.
           examples:
             application/json; charset=UTF-8:
               version: 0.0.1
-              repository: https://github.com/Financial-Times/app-name.git
+              repository: 'https://github.com/Financial-Times/app-name.git'
               revision: 7cdbdb18b4a518eef3ebb1b545fc124612f9d7cd
               builder: go version go1.6.3 linux/amd64
-              dateTime: "20161123122615"
+              dateTime: '20161123122615'
   /__gtg:
     get:
       summary: Good To Go
-      description: Lightly healthchecks the application, and returns a 200 if it's Good-To-Go.
+      description: >-
+        Lightly healthchecks the application, and returns a 200 if it's
+        Good-To-Go.
       tags:
         - Health
       produces:
-          - text/plain; charset=US-ASCII
+        - text/plain; charset=US-ASCII
       responses:
-        200:
-          description: The application is healthy enough to perform all its functions correctly - i.e. good to go.
+        '200':
+          description: >-
+            The application is healthy enough to perform all its functions
+            correctly - i.e. good to go.
           examples:
-               text/plain; charset=US-ASCII: OK
-        503:
+            text/plain; charset=US-ASCII: OK
+        '503':
           description: >
-            One or more of the applications healthchecks have failed,
-            so please do not use the app. See the /__health endpoint for more detailed information.
+            One or more of the applications healthchecks have failed, so please
+            do not use the app. See the /__health endpoint for more detailed
+            information.

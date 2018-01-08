@@ -56,6 +56,8 @@ jobs:
           GOPATH: /go
           ANNOTATIONS_PUBLISH_ENDPOINT: https://httpbin.org/post
           ANNOTATIONS_PUBLISH_AUTH: fake-user:fake-pass
+          PUBLISHED_ANNOTATIONS_RW_ENDPOINT: https://httpbin.org/post
+          ANNOTATIONS_PUBLISH_ENDPOINT: https://httpbin.org/post
     steps:
       - checkout
       - run:
@@ -76,7 +78,7 @@ workflows:
   test-and-build-docker:
     jobs:
       - build
-      - dredd
+    #  - dredd
       - dockerfile:
           requires:
             - build
