@@ -15,6 +15,7 @@ import (
 	"github.com/jawher/mow.cli"
 	"github.com/rcrowley/go-metrics"
 	log "github.com/sirupsen/logrus"
+	"github.com/Financial-Times/go-ft-http/fthttp"
 )
 
 const appDescription = "PAC Annotations Publisher"
@@ -107,16 +108,18 @@ func main() {
 			log.WithError(err).Error("could not parse timeout value")
 			return
 		}
-		draftAnnotationsRW, err := annotations.NewAnnotationsClient(*draftsEndpoint, timeout)
-		publishedAnnotationsRW, err := annotations.NewAnnotationsClient(*writerEndpoint, timeout)
+		httpClient := fthttp.NewClientWithDefaultTimeout("PAC", *appSystemCode)
+
+		draftAnnotationsRW, err := annotations.NewAnnotationsClient(*draftsEndpoint, httpClient )
+		publishedAnnotationsRW, err := annotations.NewAnnotationsClient(*writerEndpoint,httpClient)
 		if err != nil {
 			log.WithError(err).Error("could not construct writer")
 			return
 		}
-		publisher := annotations.NewPublisher(*originSystemID, draftAnnotationsRW, publishedAnnotationsRW, *annotationsEndpoint, *annotationsAuth, *annotationsGTGEndpoint, timeout)
+		publisher := annotations.NewPublisher(*originSystemID, draftAnnotationsRW, publishedAnnotationsRW, *annotationsEndpoint, *annotationsAuth, *annotationsGTGEndpoint, httpClient)
 		healthService := health.NewHealthService(*appSystemCode, *appName, appDescription, publisher, publishedAnnotationsRW, draftAnnotationsRW)
 
-		serveEndpoints(*port, apiYml, publisher, healthService)
+		serveEndpoints(*port, apiYml, publisher, healthService, timeout)
 	}
 
 	err := app.Run(os.Args)
@@ -126,9 +129,9 @@ func main() {
 	}
 }
 
-func serveEndpoints(port string, apiYml *string, publisher annotations.Publisher, healthService *health.HealthService) {
+func serveEndpoints(port string, apiYml *string, publisher annotations.Publisher, healthService *health.HealthService, timeout time.Duration) {
 	r := vestigo.NewRouter()
-	r.Post("/drafts/content/:uuid/annotations/publish", resources.Publish(publisher))
+	r.Post("/drafts/content/:uuid/annotations/publish", resources.Publish(publisher, timeout))
 
 	var monitoringRouter http.Handler = r
 	monitoringRouter = httphandlers.TransactionAwareRequestLoggingHandler(log.StandardLogger(), monitoringRouter)
