@@ -564,7 +564,7 @@ func startMockServer(t *testing.T, ctx context.Context, uuid string, publishOk b
 	r := vestigo.NewRouter()
 	r.Get("/__gtg", func(w http.ResponseWriter, r *http.Request) {
 		userAgent := r.Header.Get("User-Agent")
-		assert.Equal(t, "PAC annotations-publisher", userAgent)
+		assert.Equal(t, "PAC-test-annotations-publisher/Version--is-not-a-semantic-version", userAgent)
 
 		if !gtgOk {
 			w.WriteHeader(http.StatusServiceUnavailable)

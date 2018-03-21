@@ -113,8 +113,6 @@ func (a *uppPublisher) GTG() error {
 	if err != nil {
 		return err
 	}
-
-	req.Header.Add("User-Agent", userAgent)
 	resp, err := a.client.Do(req)
 	if err != nil {
 		return err
