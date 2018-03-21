@@ -6,14 +6,12 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"net"
-	"net/http"
-	"strings"
 	"github.com/Financial-Times/annotations-publisher/health"
 	tid "github.com/Financial-Times/transactionid-utils-go"
 	log "github.com/sirupsen/logrus"
-
-
+	"net"
+	"net/http"
+	"strings"
 )
 
 const (
@@ -24,7 +22,7 @@ var (
 	// ErrInvalidAuthentication occurs when UPP responds with a 401
 	ErrInvalidAuthentication = errors.New("publish authentication is invalid")
 	ErrDraftNotFound         = errors.New("draft was not found")
-	ErrServiceTimeout     = errors.New("downstream service timed out")
+	ErrServiceTimeout        = errors.New("downstream service timed out")
 )
 
 // Publisher provides an interface to publish annotations to UPP
@@ -80,7 +78,7 @@ func (a *uppPublisher) Publish(ctx context.Context, uuid string, body map[string
 
 	resp, err := a.client.Do(req.WithContext(ctx))
 	if err != nil {
-		if isTimeoutErr(err){
+		if isTimeoutErr(err) {
 			mlog.WithError(err).Error("annotations publish to upp timed out ")
 			return ErrServiceTimeout
 		}
@@ -150,7 +148,7 @@ func (a *uppPublisher) PublishFromStore(ctx context.Context, uuid string) error 
 	}
 
 	if err != nil {
-		if isTimeoutErr(err){
+		if isTimeoutErr(err) {
 			mlog.WithError(err).Error("r/w to draft annotations timed out ")
 			return ErrServiceTimeout
 		}
@@ -160,7 +158,7 @@ func (a *uppPublisher) PublishFromStore(ctx context.Context, uuid string) error 
 
 	_, _, err = a.publishedAnnotationsClient.SaveAnnotations(ctx, uuid, hash, published)
 	if err != nil {
-		if isTimeoutErr(err){
+		if isTimeoutErr(err) {
 			mlog.WithError(err).Error("published annotations write to PAC timed out ")
 			return ErrServiceTimeout
 		}
@@ -182,7 +180,7 @@ func (a *uppPublisher) SaveAndPublish(ctx context.Context, uuid string, hash str
 	_, _, err := a.draftAnnotationsClient.SaveAnnotations(ctx, uuid, hash, body)
 
 	if err != nil {
-		if isTimeoutErr(err){
+		if isTimeoutErr(err) {
 			mlog.WithError(err).Error("write to draft annotations timed out ")
 			return ErrServiceTimeout
 		}
@@ -190,13 +188,8 @@ func (a *uppPublisher) SaveAndPublish(ctx context.Context, uuid string, hash str
 		mlog.WithError(err).Error("write to draft annotations failed")
 		return err
 	}
-	return  a.PublishFromStore(ctx, uuid)
+	return a.PublishFromStore(ctx, uuid)
 }
-
-
-
-
-
 
 func isTimeoutErr(err error) bool {
 	netErr, ok := err.(net.Error)

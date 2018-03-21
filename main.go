@@ -9,13 +9,13 @@ import (
 	"github.com/Financial-Times/annotations-publisher/health"
 	"github.com/Financial-Times/annotations-publisher/resources"
 	"github.com/Financial-Times/api-endpoint"
+	"github.com/Financial-Times/go-ft-http/fthttp"
 	"github.com/Financial-Times/http-handlers-go/httphandlers"
 	status "github.com/Financial-Times/service-status-go/httphandlers"
 	"github.com/husobee/vestigo"
 	"github.com/jawher/mow.cli"
 	"github.com/rcrowley/go-metrics"
 	log "github.com/sirupsen/logrus"
-	"github.com/Financial-Times/go-ft-http/fthttp"
 )
 
 const appDescription = "PAC Annotations Publisher"
@@ -110,8 +110,8 @@ func main() {
 		}
 		httpClient := fthttp.NewClientWithDefaultTimeout("PAC", *appSystemCode)
 
-		draftAnnotationsRW, err := annotations.NewAnnotationsClient(*draftsEndpoint, httpClient )
-		publishedAnnotationsRW, err := annotations.NewAnnotationsClient(*writerEndpoint,httpClient)
+		draftAnnotationsRW, err := annotations.NewAnnotationsClient(*draftsEndpoint, httpClient)
+		publishedAnnotationsRW, err := annotations.NewAnnotationsClient(*writerEndpoint, httpClient)
 		if err != nil {
 			log.WithError(err).Error("could not construct writer")
 			return

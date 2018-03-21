@@ -1,12 +1,12 @@
 package annotations
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
 	"net/url"
-	"bytes"
 
 	"github.com/Financial-Times/annotations-publisher/health"
 	status "github.com/Financial-Times/service-status-go/httphandlers"
@@ -46,8 +46,6 @@ func (rw *genericRWClient) GTG() error {
 	if err != nil {
 		return err
 	}
-
-	req.Header.Add("User-Agent", userAgent)
 	resp, err := rw.client.Do(req)
 	if err != nil {
 		return err

@@ -8,9 +8,9 @@ import (
 	"net/http/httptest"
 	"testing"
 
+	"github.com/Financial-Times/go-ft-http/fthttp"
 	status "github.com/Financial-Times/service-status-go/httphandlers"
 	tid "github.com/Financial-Times/transactionid-utils-go"
-	"github.com/Financial-Times/go-ft-http/fthttp"
 	"github.com/husobee/vestigo"
 	"github.com/pborman/uuid"
 	log "github.com/sirupsen/logrus"
@@ -19,7 +19,6 @@ import (
 )
 
 var testingClient = fthttp.NewClientWithDefaultTimeout("PAC", "test-annotations-publisher")
-
 
 func TestAnnotationsRWGTG(t *testing.T) {
 	server := mockGtgServer(t, true)
@@ -51,7 +50,7 @@ func mockGtgServer(t *testing.T, gtgOk bool) *httptest.Server {
 	r := vestigo.NewRouter()
 	r.Get(status.GTGPath, func(w http.ResponseWriter, r *http.Request) {
 		userAgent := r.Header.Get("User-Agent")
-		assert.Equal(t, "PAC annotations-publisher", userAgent)
+		assert.Equal(t, "PAC-test-annotations-publisher/Version--is-not-a-semantic-version", userAgent)
 
 		if !gtgOk {
 			w.WriteHeader(http.StatusServiceUnavailable)

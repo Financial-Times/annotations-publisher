@@ -97,7 +97,6 @@ func (service *HealthService) draftsHealthChecker() (string, error) {
 	return "PAC drafts annotations reader writer is healthy", nil
 }
 
-
 func (service *HealthService) GTG() gtg.Status {
 
 	writerCheck := func() gtg.Status {
@@ -112,5 +111,3 @@ func (service *HealthService) GTG() gtg.Status {
 	// switch to 'gtg.FailFastParallelCheck' if there are multiple checkers in the future.
 	return gtg.FailFastSequentialChecker([]gtg.StatusChecker{writerCheck})()
 }
-
-

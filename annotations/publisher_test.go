@@ -17,16 +17,16 @@ import (
 	"github.com/stretchr/testify/mock"
 )
 
-type timeoutError struct{
+type timeoutError struct {
 	error
 }
-func (te timeoutError)Timeout() (bool){
+
+func (te timeoutError) Timeout() bool {
 	return true
 }
-func (te timeoutError) Temporary()  (bool){
+func (te timeoutError) Temporary() bool {
 	return false
 }
-
 
 type mockAnnotationsClient struct {
 	mock.Mock
@@ -170,8 +170,6 @@ func TestPublisherAuthenticationFails(t *testing.T) {
 	publishedAnnotationsClient.AssertExpectations(t)
 }
 
-
-
 func TestPublisherPublishToUppTimeout(t *testing.T) {
 	uuid := uuid.New()
 	server := startMockServer(t, context.Background(), uuid, true, true, 100*time.Millisecond)
@@ -180,7 +178,7 @@ func TestPublisherPublishToUppTimeout(t *testing.T) {
 	draftAnnotationsClient := &mockAnnotationsClient{}
 	publishedAnnotationsClient := &mockAnnotationsClient{}
 	publisher := NewPublisher("originSystemID", draftAnnotationsClient, publishedAnnotationsClient, server.URL+"/notify", "user:pass", server.URL+"/__gtg", testingClient)
-    ctx, cancel:= context.WithTimeout(tid.TransactionAwareContext(context.Background(), "tid"), 10*time.Millisecond)
+	ctx, cancel := context.WithTimeout(tid.TransactionAwareContext(context.Background(), "tid"), 10*time.Millisecond)
 	defer cancel()
 
 	body := make(map[string]interface{})
@@ -279,7 +277,6 @@ func TestPublishFromStoreNotFound(t *testing.T) {
 	draftAnnotationsClient.AssertExpectations(t)
 	publishedAnnotationsClient.AssertExpectations(t)
 }
-
 
 func TestPublishFromStoreDraftAnnotationsGetTimeOut(t *testing.T) {
 	uuid := uuid.New()
@@ -381,7 +378,6 @@ func TestPublishFromStoreSaveDraftTimeout(t *testing.T) {
 	publishedAnnotationsClient.AssertExpectations(t)
 }
 
-
 func TestPublishFromStoreSavePublishedFails(t *testing.T) {
 	msg := "test error"
 	uuid := uuid.New()
@@ -416,7 +412,6 @@ func TestPublishFromStoreSavePublishedFails(t *testing.T) {
 	publishedAnnotationsClient.AssertExpectations(t)
 }
 
-
 func TestPublishFromStoreSavePublishedTimeout(t *testing.T) {
 	uuid := uuid.New()
 	testAnnotations := AnnotationsBody{[]Annotation{
@@ -450,10 +445,6 @@ func TestPublishFromStoreSavePublishedTimeout(t *testing.T) {
 	publishedAnnotationsClient.AssertExpectations(t)
 }
 
-
-
-
-
 func TestPublishFromStorePublishFails(t *testing.T) {
 	uuid := uuid.New()
 	testAnnotations := AnnotationsBody{[]Annotation{
@@ -484,7 +475,6 @@ func TestPublishFromStorePublishFails(t *testing.T) {
 	draftAnnotationsClient.AssertExpectations(t)
 	publishedAnnotationsClient.AssertExpectations(t)
 }
-
 
 func TestSaveAndPublish(t *testing.T) {
 	uuid := uuid.New()
@@ -545,7 +535,6 @@ func TestSaveAndPublishNotFound(t *testing.T) {
 	publishedAnnotationsClient.AssertExpectations(t)
 }
 
-
 func TestSaveAndPublishDraftSaveAnnotationsTimeout(t *testing.T) {
 	uuid := uuid.New()
 	testHash := "hashhashhashhash"
@@ -570,10 +559,6 @@ func TestSaveAndPublishDraftSaveAnnotationsTimeout(t *testing.T) {
 	draftAnnotationsClient.AssertExpectations(t)
 	publishedAnnotationsClient.AssertExpectations(t)
 }
-
-
-
-
 
 func startMockServer(t *testing.T, ctx context.Context, uuid string, publishOk bool, gtgOk bool, delay time.Duration) *httptest.Server {
 	r := vestigo.NewRouter()
@@ -629,7 +614,6 @@ func startMockServer(t *testing.T, ctx context.Context, uuid string, publishOk b
 			time.Sleep(delay)
 		}
 
-
 		if !publishOk {
 			w.WriteHeader(http.StatusServiceUnavailable)
 		} else {
@@ -638,7 +622,6 @@ func startMockServer(t *testing.T, ctx context.Context, uuid string, publishOk b
 	})
 	return httptest.NewServer(r)
 }
-
 
 func TestIsTimeoutErr(t *testing.T) {
 	r := vestigo.NewRouter()

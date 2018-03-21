@@ -13,8 +13,6 @@ import (
 	tid "github.com/Financial-Times/transactionid-utils-go"
 	"github.com/husobee/vestigo"
 	log "github.com/sirupsen/logrus"
-
-
 )
 
 // Publish provides functionality to publish PAC annotations to UPP
@@ -71,7 +69,7 @@ func saveAndPublish(ctx context.Context, publisher annotations.Publisher, uuid s
 	mlog := log.WithField(tid.TransactionIDKey, txid)
 
 	err := publisher.SaveAndPublish(ctx, uuid, hash, body)
-	if err== annotations.ErrServiceTimeout{
+	if err == annotations.ErrServiceTimeout {
 		writeMsg(w, http.StatusGatewayTimeout, err.Error())
 		return
 	}
@@ -118,6 +116,3 @@ func writeMsg(w http.ResponseWriter, status int, msg string) {
 	enc := json.NewEncoder(w)
 	enc.Encode(&resp)
 }
-
-
-
