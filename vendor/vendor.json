@@ -11,6 +11,18 @@
 			"versionExact": "0.0.2"
 		},
 		{
+			"checksumSHA1": "wrnx5kX2hsNU3UR6yP+LYbY89n4=",
+			"path": "github.com/Financial-Times/go-ft-http/fthttp",
+			"revision": "d97cffa9d18b8d80b9f71cfc690a14e704cea664",
+			"revisionTime": "2018-03-09T16:13:59Z"
+		},
+		{
+			"checksumSHA1": "CfhMDkkbczy8GFkOvehrWiKnFE0=",
+			"path": "github.com/Financial-Times/go-ft-http/transport",
+			"revision": "d97cffa9d18b8d80b9f71cfc690a14e704cea664",
+			"revisionTime": "2018-03-09T16:13:59Z"
+		},
+		{
 			"checksumSHA1": "fNgRM8ZlaDzdvSpuhSdGxEOrWi4=",
 			"path": "github.com/Financial-Times/go-fthealth/v1_1",
 			"revision": "e7ccca038327a0091303a52445ec1f0fb66cb97b",
