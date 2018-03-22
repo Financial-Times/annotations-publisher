@@ -17,14 +17,14 @@ import (
 	"github.com/stretchr/testify/mock"
 )
 
-type timeoutError struct {
+type testTimeoutError struct {
 	error
 }
 
-func (te timeoutError) Timeout() bool {
+func (te testTimeoutError) Timeout() bool {
 	return true
 }
-func (te timeoutError) Temporary() bool {
+func (te testTimeoutError) Temporary() bool {
 	return false
 }
 
@@ -282,7 +282,7 @@ func TestPublishFromStoreDraftAnnotationsGetTimeOut(t *testing.T) {
 	uuid := uuid.New()
 
 	draftAnnotationsClient := &mockAnnotationsClient{}
-	draftAnnotationsClient.On("GetAnnotations", mock.Anything, uuid).Return(AnnotationsBody{}, "", timeoutError{errors.New("Dealine exceeded")})
+	draftAnnotationsClient.On("GetAnnotations", mock.Anything, uuid).Return(AnnotationsBody{}, "", testTimeoutError{errors.New("Dealine exceeded")})
 	publishedAnnotationsClient := &mockAnnotationsClient{}
 	publisher := NewPublisher("originSystemID", draftAnnotationsClient, publishedAnnotationsClient, "http://www.example.com/notify", "user:pass", "http://www.example.com/__gtg", testingClient)
 
@@ -360,7 +360,7 @@ func TestPublishFromStoreSaveDraftTimeout(t *testing.T) {
 
 	draftAnnotationsClient := &mockAnnotationsClient{}
 	draftAnnotationsClient.On("GetAnnotations", mock.Anything, uuid).Return(testAnnotations, testHash, nil)
-	draftAnnotationsClient.On("SaveAnnotations", mock.Anything, uuid, testHash, testAnnotations).Return(AnnotationsBody{}, "", timeoutError{errors.New("Dealine exceeded")})
+	draftAnnotationsClient.On("SaveAnnotations", mock.Anything, uuid, testHash, testAnnotations).Return(AnnotationsBody{}, "", testTimeoutError{errors.New("Dealine exceeded")})
 
 	publishedAnnotationsClient := &mockAnnotationsClient{}
 
@@ -429,7 +429,7 @@ func TestPublishFromStoreSavePublishedTimeout(t *testing.T) {
 	draftAnnotationsClient.On("SaveAnnotations", mock.Anything, uuid, testHash, testAnnotations).Return(testAnnotations, updatedHash, nil)
 
 	publishedAnnotationsClient := &mockAnnotationsClient{}
-	publishedAnnotationsClient.On("SaveAnnotations", mock.Anything, uuid, updatedHash, testAnnotations).Return(AnnotationsBody{}, "", timeoutError{errors.New("Dealine exceeded")})
+	publishedAnnotationsClient.On("SaveAnnotations", mock.Anything, uuid, updatedHash, testAnnotations).Return(AnnotationsBody{}, "", testTimeoutError{errors.New("Dealine exceeded")})
 
 	ctx, cancel := context.WithTimeout(tid.TransactionAwareContext(context.Background(), "tid_test"), 50*time.Millisecond)
 	defer cancel()
@@ -547,7 +547,7 @@ func TestSaveAndPublishDraftSaveAnnotationsTimeout(t *testing.T) {
 	}
 
 	draftAnnotationsClient := &mockAnnotationsClient{}
-	draftAnnotationsClient.On("SaveAnnotations", mock.Anything, uuid, testHash, testAnnotations).Return(AnnotationsBody{}, "", timeoutError{errors.New("Dealine exceeded")})
+	draftAnnotationsClient.On("SaveAnnotations", mock.Anything, uuid, testHash, testAnnotations).Return(AnnotationsBody{}, "", testTimeoutError{errors.New("Dealine exceeded")})
 	publishedAnnotationsClient := &mockAnnotationsClient{}
 	publisher := NewPublisher("originSystemID", draftAnnotationsClient, publishedAnnotationsClient, "http://www.example.com/notify", "user:pass", "http://www.example.com/__gtg", testingClient)
 
