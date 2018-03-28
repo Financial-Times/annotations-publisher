@@ -105,17 +105,21 @@ func main() {
 		log.Infof("System code: %s, App Name: %s, Port: %s", *appSystemCode, *appName, *port)
 		timeout, err := time.ParseDuration(*httpTimeout)
 		if err != nil {
-			log.WithError(err).Error("could not parse timeout value")
-			return
+			log.WithError(err).Fatal("Provided http timeout is not in the standard duration format.")
 		}
-		httpClient := fthttp.NewClientWithDefaultTimeout("PAC", *appSystemCode)
+
+		httpClient := fthttp.NewClient(timeout, "PAC", *appSystemCode)
 
 		draftAnnotationsRW, err := annotations.NewAnnotationsClient(*draftsEndpoint, httpClient)
+		if err != nil {
+			log.WithError(err).Fatal("Failed to create new draft annotations writer.")
+		}
+
 		publishedAnnotationsRW, err := annotations.NewAnnotationsClient(*writerEndpoint, httpClient)
 		if err != nil {
-			log.WithError(err).Error("could not construct writer")
-			return
+			log.WithError(err).Fatal("Failed to create new published annotations writer.")
 		}
+
 		publisher := annotations.NewPublisher(*originSystemID, draftAnnotationsRW, publishedAnnotationsRW, *annotationsEndpoint, *annotationsAuth, *annotationsGTGEndpoint, httpClient)
 		healthService := health.NewHealthService(*appSystemCode, *appName, appDescription, publisher, publishedAnnotationsRW, draftAnnotationsRW)
 
