@@ -16,7 +16,6 @@ type ExternalService interface {
 // HealthService runs application health checks, and provides the /__health http endpoint
 type HealthService struct {
 	fthealth.HealthCheck
-	gtgChecks []fthealth.Check
 	publisher ExternalService
 	writer    ExternalService
 	draftsRW  ExternalService
@@ -33,11 +32,6 @@ func NewHealthService(appSystemCode string, appName string, appDescription strin
 		service.publishCheck(),
 		service.draftsCheck(),
 	}
-	// For GTG, only check the local writer; even if UPP is unhealthy, we should still attempt to publish, and therefore remain ready
-	service.gtgChecks = []fthealth.Check{
-		service.writerCheck(),
-	}
-
 	return service
 }
 
@@ -103,14 +97,17 @@ func (service *HealthService) draftsHealthChecker() (string, error) {
 	return "PAC drafts annotations reader writer is healthy", nil
 }
 
-// GTG returns the current gtg status
 func (service *HealthService) GTG() gtg.Status {
-	for _, check := range service.gtgChecks {
-		msg, err := check.Checker()
+
+	writerCheck := func() gtg.Status {
+		msg, err := service.writerCheck().Checker()
 		if err != nil {
 			return gtg.Status{GoodToGo: false, Message: msg}
 		}
+
+		return gtg.Status{GoodToGo: true, Message: "OK"}
 	}
 
-	return gtg.Status{GoodToGo: true, Message: "OK"}
+	// switch to 'gtg.FailFastParallelCheck' if there are multiple checkers in the future.
+	return gtg.FailFastSequentialChecker([]gtg.StatusChecker{writerCheck})()
 }

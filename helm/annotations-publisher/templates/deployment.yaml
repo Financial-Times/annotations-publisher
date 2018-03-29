@@ -30,8 +30,8 @@ spec:
         - name: HTTP_CLIENT_TIMEOUT
           valueFrom:
             configMapKeyRef:
-              name: global-config
-              key: http.client.timeout
+              name: timeout-config
+              key: annotations-publisher-timeout
         - name: ANNOTATIONS_PUBLISH_GTG_ENDPOINT
           valueFrom:
             configMapKeyRef:

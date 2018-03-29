@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/Financial-Times/annotations-publisher/annotations"
 	tid "github.com/Financial-Times/transactionid-utils-go"
@@ -15,11 +16,12 @@ import (
 )
 
 // Publish provides functionality to publish PAC annotations to UPP
-func Publish(publisher annotations.Publisher) func(w http.ResponseWriter, r *http.Request) {
+func Publish(publisher annotations.Publisher, httpTimeOut time.Duration) func(w http.ResponseWriter, r *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
 		txid := tid.GetTransactionIDFromRequest(r)
-		ctx := tid.TransactionAwareContext(r.Context(), txid)
 		mlog := log.WithField(tid.TransactionIDKey, txid)
+		ctx, cancel := context.WithTimeout(tid.TransactionAwareContext(context.Background(), txid), httpTimeOut)
+		defer cancel()
 
 		uuid := vestigo.Param(r, "uuid")
 		if uuid == "" {
@@ -35,7 +37,7 @@ func Publish(publisher annotations.Publisher) func(w http.ResponseWriter, r *htt
 
 		bodyBytes, err := ioutil.ReadAll(r.Body)
 		if err != nil {
-			mlog.WithField("reason", err).Warn("Error reading body")
+			mlog.WithField("reason", err).Warn("error reading body")
 			writeMsg(w, http.StatusBadRequest, "Failed to read request body. Please provide a valid json request body")
 			return
 		}
@@ -53,7 +55,7 @@ func Publish(publisher annotations.Publisher) func(w http.ResponseWriter, r *htt
 		} else {
 			json.Unmarshal(bodyBytes, &body)
 			if err != nil || len(body.Annotations) == 0 {
-				mlog.WithField("reason", err).Warn("Failed to unmarshall publish body")
+				mlog.WithField("reason", err).Warn("failed to unmarshall publish body")
 				writeMsg(w, http.StatusBadRequest, "Failed to process request json. Please provide a valid json request body")
 				return
 			}
@@ -67,6 +69,10 @@ func saveAndPublish(ctx context.Context, publisher annotations.Publisher, uuid s
 	mlog := log.WithField(tid.TransactionIDKey, txid)
 
 	err := publisher.SaveAndPublish(ctx, uuid, hash, body)
+	if err == annotations.ErrServiceTimeout {
+		writeMsg(w, http.StatusGatewayTimeout, err.Error())
+		return
+	}
 	if err == annotations.ErrInvalidAuthentication { // the service config needs to be updated for this to work
 		writeMsg(w, http.StatusInternalServerError, err.Error())
 		return
@@ -76,7 +82,7 @@ func saveAndPublish(ctx context.Context, publisher annotations.Publisher, uuid s
 		return
 	}
 	if err != nil {
-		mlog.WithField("reason", err).Error("Failed to publish annotations to UPP")
+		mlog.WithField("reason", err).Error("failed to publish annotations to UPP")
 		writeMsg(w, http.StatusServiceUnavailable, err.Error())
 		return
 	}
@@ -90,10 +96,12 @@ func publishFromStore(ctx context.Context, publisher annotations.Publisher, uuid
 	err := publisher.PublishFromStore(ctx, uuid)
 	if err == nil {
 		writeMsg(w, http.StatusAccepted, "Publish accepted")
+	} else if err == annotations.ErrServiceTimeout {
+		writeMsg(w, http.StatusGatewayTimeout, err.Error())
 	} else if err == annotations.ErrDraftNotFound {
 		writeMsg(w, http.StatusNotFound, err.Error())
 	} else {
-		mlog.WithError(err).Error("unable to publish annotations from store")
+		mlog.WithError(err).Error("Unable to publish annotations from store")
 		writeMsg(w, http.StatusInternalServerError, "Unable to publish annotations from store")
 	}
 }

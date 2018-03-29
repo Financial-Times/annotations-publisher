@@ -1,18 +1,15 @@
 package annotations
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
 	"net/url"
-	"time"
-
-	"bytes"
 
 	"github.com/Financial-Times/annotations-publisher/health"
 	status "github.com/Financial-Times/service-status-go/httphandlers"
-	tid "github.com/Financial-Times/transactionid-utils-go"
 )
 
 const (
@@ -32,7 +29,7 @@ type genericRWClient struct {
 	gtgEndpoint string
 }
 
-func NewAnnotationsClient(endpoint string, timeout time.Duration) (AnnotationsClient, error) {
+func NewAnnotationsClient(endpoint string, client *http.Client) (AnnotationsClient, error) {
 	v, err := url.Parse(fmt.Sprintf(endpoint, "dummy"))
 	if err != nil {
 		return nil, err
@@ -41,7 +38,7 @@ func NewAnnotationsClient(endpoint string, timeout time.Duration) (AnnotationsCl
 	gtg, _ := url.Parse(status.GTGPath)
 	gtgUrl := v.ResolveReference(gtg)
 
-	return &genericRWClient{client: &http.Client{Timeout: timeout}, rwEndpoint: endpoint, gtgEndpoint: gtgUrl.String()}, nil
+	return &genericRWClient{client: client, rwEndpoint: endpoint, gtgEndpoint: gtgUrl.String()}, nil
 }
 
 func (rw *genericRWClient) GTG() error {
@@ -49,8 +46,6 @@ func (rw *genericRWClient) GTG() error {
 	if err != nil {
 		return err
 	}
-
-	req.Header.Add("User-Agent", userAgent)
 	resp, err := rw.client.Do(req)
 	if err != nil {
 		return err
@@ -76,13 +71,9 @@ func (rw *genericRWClient) GetAnnotations(ctx context.Context, uuid string) (Ann
 		return AnnotationsBody{}, "", err
 	}
 
-	txid, _ := tid.GetTransactionIDFromContext(ctx)
-
-	req.Header.Set("User-Agent", userAgent)
-	req.Header.Set("X-Request-Id", txid)
 	req.Header.Set("Accept", "application/json")
 
-	resp, err := rw.client.Do(req)
+	resp, err := rw.client.Do(req.WithContext(ctx))
 	if err != nil {
 		return AnnotationsBody{}, "", err
 	}
@@ -94,7 +85,7 @@ func (rw *genericRWClient) GetAnnotations(ctx context.Context, uuid string) (Ann
 	}
 
 	if resp.StatusCode != http.StatusOK {
-		return AnnotationsBody{}, "", fmt.Errorf("Read from %v returned a %v status code", draftsUrl, resp.StatusCode)
+		return AnnotationsBody{}, "", fmt.Errorf("read from %v returned a %v status code", draftsUrl, resp.StatusCode)
 	}
 
 	hash := resp.Header.Get(DocumentHashHeader)
@@ -115,18 +106,13 @@ func (rw *genericRWClient) SaveAnnotations(ctx context.Context, uuid string, has
 		return AnnotationsBody{}, "", err
 	}
 
-	txid, _ := tid.GetTransactionIDFromContext(ctx)
-
 	req.Header.Set(PreviousDocumentHashHeader, hash)
-	req.Header.Set("User-Agent", userAgent)
-	req.Header.Set("X-Request-Id", txid)
 	req.Header.Set("Accept", "application/json")
 
-	resp, err := rw.client.Do(req)
+	resp, err := rw.client.Do(req.WithContext(ctx))
 	if err != nil {
 		return AnnotationsBody{}, "", err
 	}
-
 	defer resp.Body.Close()
 
 	if resp.StatusCode == http.StatusOK || resp.StatusCode == http.StatusCreated {
@@ -142,5 +128,5 @@ func (rw *genericRWClient) SaveAnnotations(ctx context.Context, uuid string, has
 		return ann, resp.Header.Get(DocumentHashHeader), err
 	}
 
-	return AnnotationsBody{}, "", fmt.Errorf("Write to %v returned a %v status code", draftsUrl, resp.StatusCode)
+	return AnnotationsBody{}, "", fmt.Errorf("write to %v returned a %v status code", draftsUrl, resp.StatusCode)
 }

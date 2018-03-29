@@ -6,13 +6,12 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"net/http"
-	"strings"
-	"time"
-
 	"github.com/Financial-Times/annotations-publisher/health"
 	tid "github.com/Financial-Times/transactionid-utils-go"
 	log "github.com/sirupsen/logrus"
+	"net"
+	"net/http"
+	"strings"
 )
 
 const (
@@ -23,6 +22,7 @@ var (
 	// ErrInvalidAuthentication occurs when UPP responds with a 401
 	ErrInvalidAuthentication = errors.New("publish authentication is invalid")
 	ErrDraftNotFound         = errors.New("draft was not found")
+	ErrServiceTimeout        = errors.New("downstream service timed out")
 )
 
 // Publisher provides an interface to publish annotations to UPP
@@ -44,16 +44,19 @@ type uppPublisher struct {
 }
 
 // NewPublisher returns a new Publisher instance
-func NewPublisher(originSystemID string, draftAnnotationsClient AnnotationsClient, publishedAnnotationsClient AnnotationsClient, publishEndpoint string, publishAuth string, gtgEndpoint string, timeout time.Duration) Publisher {
+func NewPublisher(originSystemID string, draftAnnotationsClient AnnotationsClient, publishedAnnotationsClient AnnotationsClient, publishEndpoint string, publishAuth string, gtgEndpoint string, client *http.Client) Publisher {
 	log.WithField("endpoint", draftAnnotationsClient.Endpoint()).Info("draft annotations r/w endpoint")
 	log.WithField("endpoint", publishedAnnotationsClient.Endpoint()).Info("published annotations r/w endpoint")
 	log.WithField("endpoint", publishEndpoint).Info("publish endpoint")
-	return &uppPublisher{client: &http.Client{Timeout: timeout}, originSystemID: originSystemID, draftAnnotationsClient: draftAnnotationsClient, publishedAnnotationsClient: publishedAnnotationsClient, publishEndpoint: publishEndpoint, publishAuth: publishAuth, gtgEndpoint: gtgEndpoint}
+
+	return &uppPublisher{client: client, originSystemID: originSystemID, draftAnnotationsClient: draftAnnotationsClient, publishedAnnotationsClient: publishedAnnotationsClient, publishEndpoint: publishEndpoint, publishAuth: publishAuth, gtgEndpoint: gtgEndpoint}
 }
 
 // Publish sends the annotations to UPP via the configured publishEndpoint. Requests contain X-Origin-System-Id and X-Request-Id and a User-Agent as provided.
 func (a *uppPublisher) Publish(ctx context.Context, uuid string, body map[string]interface{}) error {
 	txid, _ := tid.GetTransactionIDFromContext(ctx)
+	mlog := log.WithField("transaction_id", txid)
+
 	body["uuid"] = uuid
 	bodyJSON, err := json.Marshal(body)
 	if err != nil {
@@ -70,13 +73,15 @@ func (a *uppPublisher) Publish(ctx context.Context, uuid string, body map[string
 		return err
 	}
 
-	req.Header.Add("User-Agent", userAgent)
 	req.Header.Add("X-Origin-System-Id", a.originSystemID)
-	req.Header.Add("X-Request-Id", txid)
 	req.Header.Add("Content-Type", "application/json")
 
-	resp, err := a.client.Do(req)
+	resp, err := a.client.Do(req.WithContext(ctx))
 	if err != nil {
+		if isTimeoutErr(err) {
+			mlog.WithError(err).Error("annotations publish to upp timed out ")
+			return ErrServiceTimeout
+		}
 		return err
 	}
 
@@ -87,7 +92,7 @@ func (a *uppPublisher) Publish(ctx context.Context, uuid string, body map[string
 	}
 
 	if resp.StatusCode != http.StatusOK {
-		return fmt.Errorf("Publish to %v returned a %v status code", a.publishEndpoint, resp.StatusCode)
+		return fmt.Errorf("publish to %v returned a %v status code", a.publishEndpoint, resp.StatusCode)
 	}
 
 	return nil
@@ -96,7 +101,7 @@ func (a *uppPublisher) Publish(ctx context.Context, uuid string, body map[string
 func (a *uppPublisher) addBasicAuth(r *http.Request) error {
 	auth := strings.Split(a.publishAuth, ":")
 	if len(auth) != 2 {
-		return errors.New("Invalid auth configured")
+		return errors.New("invalid auth configured")
 	}
 	r.SetBasicAuth(auth[0], auth[1])
 	return nil
@@ -108,8 +113,6 @@ func (a *uppPublisher) GTG() error {
 	if err != nil {
 		return err
 	}
-
-	req.Header.Add("User-Agent", userAgent)
 	resp, err := a.client.Do(req)
 	if err != nil {
 		return err
@@ -143,12 +146,20 @@ func (a *uppPublisher) PublishFromStore(ctx context.Context, uuid string) error 
 	}
 
 	if err != nil {
+		if isTimeoutErr(err) {
+			mlog.WithError(err).Error("r/w to draft annotations timed out ")
+			return ErrServiceTimeout
+		}
 		mlog.WithError(err).Error("r/w to draft annotations failed")
 		return err
 	}
 
 	_, _, err = a.publishedAnnotationsClient.SaveAnnotations(ctx, uuid, hash, published)
 	if err != nil {
+		if isTimeoutErr(err) {
+			mlog.WithError(err).Error("published annotations write to PAC timed out ")
+			return ErrServiceTimeout
+		}
 		mlog.WithError(err).Error("r/w to published annotations failed")
 		return err
 	}
@@ -167,8 +178,18 @@ func (a *uppPublisher) SaveAndPublish(ctx context.Context, uuid string, hash str
 	_, _, err := a.draftAnnotationsClient.SaveAnnotations(ctx, uuid, hash, body)
 
 	if err != nil {
+		if isTimeoutErr(err) {
+			mlog.WithError(err).Error("write to draft annotations timed out ")
+			return ErrServiceTimeout
+		}
+
 		mlog.WithError(err).Error("write to draft annotations failed")
 		return err
 	}
-	return  a.PublishFromStore(ctx, uuid)
+	return a.PublishFromStore(ctx, uuid)
+}
+
+func isTimeoutErr(err error) bool {
+	netErr, ok := err.(net.Error)
+	return ok && netErr.Timeout()
 }
