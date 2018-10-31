@@ -208,7 +208,7 @@ func TestPublisherGTGFails(t *testing.T) {
 	publishedAnnotationsClient := &mockAnnotationsClient{}
 	publisher := NewPublisher("originSystemID", draftAnnotationsClient, publishedAnnotationsClient, "publishEndpoint", "user:pass", server.URL+"/__gtg", testingClient)
 	err := publisher.GTG()
-	assert.EqualError(t, err, fmt.Sprintf("GTG %v returned a %v status code", server.URL+"/__gtg", http.StatusServiceUnavailable))
+	assert.EqualError(t, err, fmt.Sprintf("GTG %v returned a %v status code for UPP publish endpoint", server.URL+"/__gtg", http.StatusServiceUnavailable))
 }
 
 func TestPublisherGTGDoRequestFails(t *testing.T) {

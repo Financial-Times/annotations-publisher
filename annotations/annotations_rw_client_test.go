@@ -37,7 +37,7 @@ func TestAnnotationsRWGTGFails(t *testing.T) {
 
 	client, err := NewAnnotationsClient(server.URL+"/%s", testingClient)
 	err = client.GTG()
-	assert.EqualError(t, err, fmt.Sprintf("GTG %v returned a %v status code", server.URL+"/__gtg", http.StatusServiceUnavailable))
+	assert.EqualError(t, err, fmt.Sprintf("GTG %v returned a %v status code for generic-rw-aurora", server.URL+"/__gtg", http.StatusServiceUnavailable))
 }
 
 func TestAnnotationsRWGTGInvalidURL(t *testing.T) {
