@@ -10,6 +10,7 @@ import (
 
 	"github.com/Financial-Times/annotations-publisher/health"
 	status "github.com/Financial-Times/service-status-go/httphandlers"
+	log "github.com/sirupsen/logrus"
 )
 
 const (
@@ -44,17 +45,23 @@ func NewAnnotationsClient(endpoint string, client *http.Client) (AnnotationsClie
 func (rw *genericRWClient) GTG() error {
 	req, err := http.NewRequest("GET", rw.gtgEndpoint, nil)
 	if err != nil {
+		log.WithError(err).WithField("healthEndpoint", rw.gtgEndpoint).Error("Error in creating GTG request for generic-rw-aurora")
 		return err
 	}
 	resp, err := rw.client.Do(req)
 	if err != nil {
+		log.WithError(err).WithField("healthEndpoint", rw.gtgEndpoint).Error("Error in GTG request for generic-rw-aurora")
 		return err
 	}
 
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		return fmt.Errorf("GTG %v returned a %v status code", rw.gtgEndpoint, resp.StatusCode)
+		log.WithField("healthEndpoint", rw.gtgEndpoint).
+			WithField("status", resp.StatusCode).
+			Error("GTG for generic-rw-aurora returned a non-200 HTTP status")
+
+		return fmt.Errorf("GTG %v returned a %v status code for generic-rw-aurora", rw.gtgEndpoint, resp.StatusCode)
 	}
 
 	return nil

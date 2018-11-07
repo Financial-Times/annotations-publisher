@@ -111,17 +111,22 @@ func (a *uppPublisher) addBasicAuth(r *http.Request) error {
 func (a *uppPublisher) GTG() error {
 	req, err := http.NewRequest("GET", a.gtgEndpoint, nil)
 	if err != nil {
+		log.WithError(err).WithField("healthEndpoint", a.gtgEndpoint).Error("Error in creating GTG request for UPP publish endpoint")
 		return err
 	}
 	resp, err := a.client.Do(req)
 	if err != nil {
+		log.WithError(err).WithField("healthEndpoint", a.gtgEndpoint).Error("Error in GTG request for UPP publish endpoint")
 		return err
 	}
 
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		return fmt.Errorf("GTG %v returned a %v status code", a.gtgEndpoint, resp.StatusCode)
+		log.WithField("healthEndpoint", a.gtgEndpoint).
+			WithField("status", resp.StatusCode).
+			Error("GTG for generic-rw-aurora returned a non-200 HTTP status")
+		return fmt.Errorf("GTG %v returned a %v status code for UPP publish endpoint", a.gtgEndpoint, resp.StatusCode)
 	}
 
 	return nil
