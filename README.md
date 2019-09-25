@@ -7,25 +7,22 @@ The Annotations Publisher is a microservice that Publishes annotations from TagM
 
 ## Installation
 
-Download the source code, dependencies and test dependencies:
+Download the source code, the dependencies and build the binary.
+Make sure you use Go version 1.13 or above.
 
-```
-go get -u github.com/kardianos/govendor
-mkdir $GOPATH/src/github.com/Financial-Times/annotations-publisher
-cd $GOPATH/src/github.com/Financial-Times
-git clone https://github.com/Financial-Times/annotations-publisher.git
-cd annotations-publisher && govendor sync
-go build .
+
+```shell
+go get github.com/Financial-Times/annotations-publisher
+cd $GOPATH/src/github.com/Financial-Times/annotations-publisher
+go install
 ```
 
 ## Running locally
 
-1. Run the tests and install the binary:
+1. Run the tests:
 
 ```
-govendor sync
-govendor test -v -race +local
-go install
+go test ./... -v -race
 ```
 
 2. Run the binary (using the `help` flag to see the available optional arguments):
@@ -33,22 +30,21 @@ go install
 ```
 $GOPATH/bin/annotations-publisher [--help]
 
-PAC Annotations Publisher
-
 Options:
-  --app-system-code="annotations-publisher"             System Code of the application ($APP_SYSTEM_CODE)
-  --app-name="annotations-publisher"                    Application name ($APP_NAME)
-  --port="8080"                                         Port to listen on ($APP_PORT)
-  --draft-annotations-rw-endpoint=""                    Endpoint for saving/reading draft annotations ($DRAFT_ANNOTATIONS_RW_ENDPOINT)
-  --annotations-publish-endpoint=""                     Endpoint to publish annotations to UPP ($ANNOTATIONS_PUBLISH_ENDPOINT)
-  --annotations-publish-gtg-endpoint=""                 GTG Endpoint for publishing annotations to UPP ($ANNOTATIONS_PUBLISH_GTG_ENDPOINT)
-  --annotations-publish-auth=""                         Basic auth to use for publishing annotations, in the format username:password ($ANNOTATIONS_PUBLISH_AUTH)
-  --origin-system-id="http://cmdb.ft.com/systems/pac"   The system this publish originated from ($ORIGIN_SYSTEM_ID)
-  --api-yml="./api.yml"                                 Location of the API Swagger YML file. ($API_YML)
-  --http-timeout="8s"                                     http client timeout in seconds
+	--app-system-code="annotations-publisher"                                                              System Code of the application ($APP_SYSTEM_CODE)
+	--app-name="annotations-publisher"                                                                     Application name ($APP_NAME)
+	--port="8080"                                                                                          Port to listen on ($APP_PORT)
+	--draft-annotations-rw-endpoint="http://draft-annotations-api:8080/drafts/content/%v/annotations"      Endpoint for saving/reading draft annotations ($DRAFT_ANNOTATIONS_RW_ENDPOINT)
+	--published-annotations-rw-endpoint="http://generic-rw-aurora:8080/published/content/%s/annotations"   Endpoint for saving/reading published annotations ($PUBLISHED_ANNOTATIONS_RW_ENDPOINT)
+	--annotations-publish-endpoint=""                                                                      Endpoint to publish annotations to UPP ($ANNOTATIONS_PUBLISH_ENDPOINT)
+	--annotations-publish-gtg-endpoint=""                                                                  GTG Endpoint for publishing annotations to UPP ($ANNOTATIONS_PUBLISH_GTG_ENDPOINT)
+	--annotations-publish-auth=""                                                                          Basic auth to use for publishing annotations, in the format username:password ($ANNOTATIONS_PUBLISH_AUTH)
+	--origin-system-id="http://cmdb.ft.com/systems/pac"                                                    The system this publish originated from ($ORIGIN_SYSTEM_ID)
+	--api-yml="./api.yml"                                                                                  Location of the API Swagger YML file. ($API_YML)
+	--http-timeout="8s"                                                                                    http client timeout in seconds ($HTTP_CLIENT_TIMEOUT)
 ```
 
-3. Test:
+3. Check the service health:
 
 ```
 curl http://localhost:8080/__health | jq
@@ -56,7 +52,7 @@ curl http://localhost:8080/__health | jq
 
 ## Build and deployment
 
-* Built by Docker Hub on merge to master: [coco/annotations-publisher](https://hub.docker.com/r/coco/annotations-publisher/)
+* Built by Jenkins on new tag creation and uploaded to Docker Hub: [coco/annotations-publisher](https://hub.docker.com/r/coco/annotations-publisher/)
 * CI provided by CircleCI: [annotations-publisher](https://circleci.com/gh/Financial-Times/annotations-publisher)
 
 ## Service endpoints
@@ -113,7 +109,5 @@ At the moment the `/__health` endpoint checks the availability of the UPP Publis
 ### Logging
 
 * The application uses [logrus](https://github.com/sirupsen/logrus); the log file is initialised in [main.go](main.go).
-* Logging requires an `env` app parameter, for all environments other than `local` logs are written to file.
-* When running locally, logs are written to console. If you want to log locally to file, you need to pass in an env parameter that is != `local`.
+* Logs are written to console.
 * NOTE: `/__build-info` and `/__gtg` endpoints are not logged as they are called every second from varnish/vulcand and this information is not needed in logs/splunk.
-
