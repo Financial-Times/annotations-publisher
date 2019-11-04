@@ -6,16 +6,13 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/Financial-Times/annotations-publisher/health"
-	tid "github.com/Financial-Times/transactionid-utils-go"
-	log "github.com/sirupsen/logrus"
 	"net"
 	"net/http"
 	"strings"
-)
 
-const (
-	userAgent = "PAC annotations-publisher"
+	"github.com/Financial-Times/annotations-publisher/health"
+	tid "github.com/Financial-Times/transactionid-utils-go"
+	log "github.com/sirupsen/logrus"
 )
 
 var (
@@ -107,16 +104,22 @@ func (a *uppPublisher) addBasicAuth(r *http.Request) error {
 	return nil
 }
 
-// GTG performs a health check against the UPP publish endpoint
+// GTG performs a health check against the UPP cms-metadata-notifier service
 func (a *uppPublisher) GTG() error {
 	req, err := http.NewRequest("GET", a.gtgEndpoint, nil)
 	if err != nil {
-		log.WithError(err).WithField("healthEndpoint", a.gtgEndpoint).Error("Error in creating GTG request for UPP publish endpoint")
+		log.WithError(err).WithField("healthEndpoint", a.gtgEndpoint).Error("Error in creating GTG request for UPP cms-metadata-notifier service")
 		return err
 	}
+
+	err = a.addBasicAuth(req)
+	if err != nil {
+		return err
+	}
+
 	resp, err := a.client.Do(req)
 	if err != nil {
-		log.WithError(err).WithField("healthEndpoint", a.gtgEndpoint).Error("Error in GTG request for UPP publish endpoint")
+		log.WithError(err).WithField("healthEndpoint", a.gtgEndpoint).Error("Error in GTG request for UPP cms-metadata-notifier service")
 		return err
 	}
 
@@ -125,8 +128,8 @@ func (a *uppPublisher) GTG() error {
 	if resp.StatusCode != http.StatusOK {
 		log.WithField("healthEndpoint", a.gtgEndpoint).
 			WithField("status", resp.StatusCode).
-			Error("GTG for generic-rw-aurora returned a non-200 HTTP status")
-		return fmt.Errorf("GTG %v returned a %v status code for UPP publish endpoint", a.gtgEndpoint, resp.StatusCode)
+			Error("GTG for UPP cms-metadata-notifier service returned a non-200 HTTP status")
+		return fmt.Errorf("GTG %v returned a %v status code for UPP cms-metadata-notifier service", a.gtgEndpoint, resp.StatusCode)
 	}
 
 	return nil
