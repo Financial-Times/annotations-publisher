@@ -32,7 +32,7 @@ type mockAnnotationsClient struct {
 	mock.Mock
 }
 
-func (m *mockAnnotationsClient) GetAnnotations(ctx context.Context, uuid string) (AnnotationsBody, string, error) {
+func (m *mockAnnotationsClient) GetAnnotations(ctx context.Context, uuid string, sendHasBrand bool) (AnnotationsBody, string, error) {
 	args := m.Called(ctx, uuid)
 	return args.Get(0).(AnnotationsBody), args.String(1), args.Error(2)
 }
