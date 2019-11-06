@@ -19,7 +19,8 @@ import (
 )
 
 var testingClient = fthttp.NewClientWithDefaultTimeout("PAC", "test-annotations-publisher")
-var draftsURL = "/drafts/content/:uuid/annotations"
+
+const draftsURL = "/drafts/content/:uuid/annotations"
 
 func TestAnnotationsRWGTG(t *testing.T) {
 	server := mockGtgServer(t, true)
@@ -36,8 +37,10 @@ func TestAnnotationsRWGTGFails(t *testing.T) {
 	server := mockGtgServer(t, false)
 	defer server.Close()
 
-	client, _ := NewAnnotationsClient(server.URL+"/%s", testingClient)
-	err := client.GTG()
+	client, err := NewAnnotationsClient(server.URL+"/%s", testingClient)
+	require.NoError(t, err)
+
+	err = client.GTG()
 	assert.EqualError(t, err, fmt.Sprintf("GTG %v returned a %v status code for generic-rw-aurora", server.URL+"/__gtg", http.StatusServiceUnavailable))
 }
 
@@ -93,7 +96,7 @@ func TestGetAnnotations(t *testing.T) {
 	expectedAnnotations := AnnotationsBody{Annotations: []Annotation{
 		{
 			Predicate: "foo",
-			ConceptId: "bar",
+			ConceptID: "bar",
 		},
 	},
 	}
@@ -198,7 +201,7 @@ func TestSaveAnnotations(t *testing.T) {
 		Annotations: []Annotation{
 			{
 				Predicate: "foo",
-				ConceptId: "bar",
+				ConceptID: "bar",
 			},
 		},
 	}
@@ -228,7 +231,7 @@ func TestSaveAnnotationsCreatedStatus(t *testing.T) {
 	testAnnotations := AnnotationsBody{Annotations: []Annotation{
 		{
 			Predicate: "foo",
-			ConceptId: "bar",
+			ConceptID: "bar",
 		},
 	},
 	}
@@ -258,7 +261,7 @@ func TestSaveAnnotationsError(t *testing.T) {
 	testAnnotations := AnnotationsBody{Annotations: []Annotation{
 		{
 			Predicate: "foo",
-			ConceptId: "bar",
+			ConceptID: "bar",
 		},
 	},
 	}
@@ -285,7 +288,7 @@ func TestSaveAnnotationsWriterReturnsNoBody(t *testing.T) {
 		Annotations: []Annotation{
 			{
 				Predicate: "foo",
-				ConceptId: "bar",
+				ConceptID: "bar",
 			},
 		},
 	}
