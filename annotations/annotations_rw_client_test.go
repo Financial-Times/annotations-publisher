@@ -93,7 +93,7 @@ func TestGetAnnotations(t *testing.T) {
 	expectedAnnotations := AnnotationsBody{Annotations: []Annotation{
 		{
 			Predicate: "foo",
-			ConceptId: "bar",
+			ConceptID: "bar",
 		},
 	},
 	}
@@ -198,7 +198,7 @@ func TestSaveAnnotations(t *testing.T) {
 		Annotations: []Annotation{
 			{
 				Predicate: "foo",
-				ConceptId: "bar",
+				ConceptID: "bar",
 			},
 		},
 	}
@@ -228,7 +228,7 @@ func TestSaveAnnotationsCreatedStatus(t *testing.T) {
 	testAnnotations := AnnotationsBody{Annotations: []Annotation{
 		{
 			Predicate: "foo",
-			ConceptId: "bar",
+			ConceptID: "bar",
 		},
 	},
 	}
@@ -258,7 +258,7 @@ func TestSaveAnnotationsError(t *testing.T) {
 	testAnnotations := AnnotationsBody{Annotations: []Annotation{
 		{
 			Predicate: "foo",
-			ConceptId: "bar",
+			ConceptID: "bar",
 		},
 	},
 	}
@@ -285,7 +285,7 @@ func TestSaveAnnotationsWriterReturnsNoBody(t *testing.T) {
 		Annotations: []Annotation{
 			{
 				Predicate: "foo",
-				ConceptId: "bar",
+				ConceptID: "bar",
 			},
 		},
 	}
