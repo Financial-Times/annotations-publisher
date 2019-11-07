@@ -149,7 +149,7 @@ func (a *uppPublisher) PublishFromStore(ctx context.Context, uuid string) error 
 	var published AnnotationsBody
 	var err error
 
-	if draft, hash, err = a.draftAnnotationsClient.GetAnnotations(ctx, uuid, true); err == nil {
+	if draft, hash, err = a.draftAnnotationsClient.GetAnnotations(ctx, uuid); err == nil {
 		published, hash, err = a.draftAnnotationsClient.SaveAnnotations(ctx, uuid, hash, draft)
 	}
 

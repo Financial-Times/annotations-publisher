@@ -116,7 +116,7 @@ func TestGetAnnotations(t *testing.T) {
 	client, err := NewAnnotationsClient(server.URL+"/drafts/content/%s/annotations", testingClient)
 	require.NoError(t, err)
 
-	actual, actualHash, err := client.GetAnnotations(testCtx, testUUID, true)
+	actual, actualHash, err := client.GetAnnotations(testCtx, testUUID)
 	assert.NoError(t, err)
 	assert.Equal(t, expectedHash, actualHash)
 	assert.Equal(t, expectedAnnotations, actual)
@@ -135,7 +135,7 @@ func TestGetAnnotationsNotFound(t *testing.T) {
 	client, err := NewAnnotationsClient(server.URL+"/drafts/content/%s/annotations", testingClient)
 	require.NoError(t, err)
 
-	_, _, err = client.GetAnnotations(testCtx, uuid.New(), true)
+	_, _, err = client.GetAnnotations(testCtx, uuid.New())
 	assert.EqualError(t, err, ErrDraftNotFound.Error())
 }
 
@@ -152,7 +152,7 @@ func TestGetAnnotationsFailure(t *testing.T) {
 	client, err := NewAnnotationsClient(server.URL+"/drafts/content/%s/annotations", testingClient)
 	require.NoError(t, err)
 
-	_, _, err = client.GetAnnotations(testCtx, uuid.New(), true)
+	_, _, err = client.GetAnnotations(testCtx, uuid.New())
 	assert.Contains(t, err.Error(), "returned a 500 status code")
 }
 

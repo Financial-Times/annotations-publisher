@@ -21,7 +21,7 @@ const (
 
 type AnnotationsClient interface {
 	health.ExternalService
-	GetAnnotations(ctx context.Context, uuid string, sendHasBrand bool) (AnnotationsBody, string, error)
+	GetAnnotations(ctx context.Context, uuid string) (AnnotationsBody, string, error)
 	SaveAnnotations(ctx context.Context, uuid string, hash string, data AnnotationsBody) (AnnotationsBody, string, error)
 }
 
@@ -72,7 +72,7 @@ func (rw *genericRWClient) Endpoint() string {
 	return rw.rwEndpoint
 }
 
-func (rw *genericRWClient) GetAnnotations(ctx context.Context, uuid string, sendHasBrand bool) (AnnotationsBody, string, error) {
+func (rw *genericRWClient) GetAnnotations(ctx context.Context, uuid string) (AnnotationsBody, string, error) {
 	draftsURL := fmt.Sprintf(rw.rwEndpoint, uuid)
 	req, err := http.NewRequest("GET", draftsURL, nil)
 	if err != nil {
@@ -80,7 +80,8 @@ func (rw *genericRWClient) GetAnnotations(ctx context.Context, uuid string, send
 	}
 
 	q := req.URL.Query()
-	q.Add("sendHasBrand", strconv.FormatBool(sendHasBrand))
+	//we send this parameter to draft-annotations-api to get isClassifiedBy predicate as hasBrand
+	q.Add("sendHasBrand", strconv.FormatBool(true))
 	req.URL.RawQuery = q.Encode()
 
 	req.Header.Set("Accept", "application/json")
