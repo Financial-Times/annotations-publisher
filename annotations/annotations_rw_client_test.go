@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"strconv"
 	"testing"
 
 	"github.com/Financial-Times/go-ft-http/fthttp"
@@ -69,6 +70,9 @@ func mockGtgServer(t *testing.T, gtgOk bool) *httptest.Server {
 func mockGetAnnotations(t *testing.T, expectedTid string, annotations map[string]AnnotationsBody, documentHash string, responseStatus int) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		assert.Equal(t, expectedTid, r.Header.Get(tid.TransactionIDHeader), "transaction id")
+
+		p, _ := strconv.ParseBool(r.URL.Query().Get("sendHasBrand"))
+		assert.Equal(t, p, true)
 
 		uuid := vestigo.Param(r, "uuid")
 		response, found := annotations[uuid]
