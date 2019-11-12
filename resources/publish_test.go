@@ -148,7 +148,7 @@ func TestPublishBodyReadFail(t *testing.T) {
 	r.Post("/drafts/content/:uuid/annotations/publish", Publish(pub, timeout))
 
 	w := httptest.NewRecorder()
-	req := httptest.NewRequest("POST", "/drafts/content/a-valid-uuid/annotations/publish", &failingReader{err: errors.New("Failed to read request body. Please provide a valid json request body")})
+	req := httptest.NewRequest("POST", "/drafts/content/a-valid-uuid/annotations/publish", &failingReader{err: errors.New("failed to read request body. Please provide a valid json request body")})
 
 	req.Header.Add(annotations.PreviousDocumentHashHeader, "hash")
 

@@ -3,7 +3,7 @@
 
 ## Introduction
 
-The Annotations Publisher is a microservice that Publishes annotations from TagMe to UPP.
+The Annotations Publisher is a microservice that publishes annotations from TagMe to UPP.
 
 ## Installation
 
@@ -60,9 +60,17 @@ curl http://localhost:8080/__health | jq
 For a full description of API endpoints for the service, please see the [Open API specification](./api/api.yml).
 
 ### POST
+####Publish from Store####
+
+```
+curl http://localhost:8080/draft/content/b7b871f6-8a89-11e4-8e24-00144feabdc0/annotations/publish?fromStore=true -XPOST
+```
+
+А POST request with fromSource=true retrieves the latest annotations from draft-annotations-api, persists them to the PAC database draft and published-annotations tables, and then publishes them to UPP.
+
 ####Publish with Body####
 
-This endpoint saves the provided annotations to the PAC database (within the draft and published annotations collections), and will subsequently publish the annotations to UPP.
+This endpoint first saves in PAC the annotations provided in the body and then does the same as Publish from Store.
 N.B.: Currently, if the hash value is empty, the request will succeed anyway. This may change in the future.
 
 curl http://localhost:8080/draft/content/b7b871f6-8a89-11e4-8e24-00144feabdc0/annotations/publish -XPOST -H "Previous-Document-Hash:hashvalue" --data
@@ -86,15 +94,6 @@ curl http://localhost:8080/draft/content/b7b871f6-8a89-11e4-8e24-00144feabdc0/an
 }
 ```
 }'
-
-
-####Publish from Store####
-
-```
-curl http://localhost:8080/draft/content/b7b871f6-8a89-11e4-8e24-00144feabdc0/annotations/publish?fromStore=true -XPOST
-```
-
-By removing the request body, and setting the query parameter fromStore=true, a POST to the same endpoint will first retrieve the latest annotations from the PAC database, persist them to the PAC database published collection, and then publish to UPP.
 
 ## Healthchecks
 

@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+	"strconv"
 
 	"github.com/Financial-Times/annotations-publisher/health"
 	status "github.com/Financial-Times/service-status-go/httphandlers"
@@ -37,9 +38,9 @@ func NewAnnotationsClient(endpoint string, client *http.Client) (AnnotationsClie
 	}
 
 	gtg, _ := url.Parse(status.GTGPath)
-	gtgUrl := v.ResolveReference(gtg)
+	gtgURL := v.ResolveReference(gtg)
 
-	return &genericRWClient{client: client, rwEndpoint: endpoint, gtgEndpoint: gtgUrl.String()}, nil
+	return &genericRWClient{client: client, rwEndpoint: endpoint, gtgEndpoint: gtgURL.String()}, nil
 }
 
 func (rw *genericRWClient) GTG() error {
@@ -72,11 +73,16 @@ func (rw *genericRWClient) Endpoint() string {
 }
 
 func (rw *genericRWClient) GetAnnotations(ctx context.Context, uuid string) (AnnotationsBody, string, error) {
-	draftsUrl := fmt.Sprintf(rw.rwEndpoint, uuid)
-	req, err := http.NewRequest("GET", draftsUrl, nil)
+	draftsURL := fmt.Sprintf(rw.rwEndpoint, uuid)
+	req, err := http.NewRequest("GET", draftsURL, nil)
 	if err != nil {
 		return AnnotationsBody{}, "", err
 	}
+
+	q := req.URL.Query()
+	//we send this parameter to draft-annotations-api to get isClassifiedBy predicate as hasBrand
+	q.Add("sendHasBrand", strconv.FormatBool(true))
+	req.URL.RawQuery = q.Encode()
 
 	req.Header.Set("Accept", "application/json")
 
@@ -92,7 +98,7 @@ func (rw *genericRWClient) GetAnnotations(ctx context.Context, uuid string) (Ann
 	}
 
 	if resp.StatusCode != http.StatusOK {
-		return AnnotationsBody{}, "", fmt.Errorf("read from %v returned a %v status code", draftsUrl, resp.StatusCode)
+		return AnnotationsBody{}, "", fmt.Errorf("read from %v returned a %v status code", draftsURL, resp.StatusCode)
 	}
 
 	hash := resp.Header.Get(DocumentHashHeader)
@@ -103,12 +109,12 @@ func (rw *genericRWClient) GetAnnotations(ctx context.Context, uuid string) (Ann
 }
 
 func (rw *genericRWClient) SaveAnnotations(ctx context.Context, uuid string, hash string, data AnnotationsBody) (AnnotationsBody, string, error) {
-	draftsUrl := fmt.Sprintf(rw.rwEndpoint, uuid)
+	draftsURL := fmt.Sprintf(rw.rwEndpoint, uuid)
 	body, err := json.Marshal(data)
 	if err != nil {
 		return AnnotationsBody{}, "", err
 	}
-	req, err := http.NewRequest("PUT", draftsUrl, bytes.NewReader(body))
+	req, err := http.NewRequest("PUT", draftsURL, bytes.NewReader(body))
 	if err != nil {
 		return AnnotationsBody{}, "", err
 	}
@@ -135,5 +141,5 @@ func (rw *genericRWClient) SaveAnnotations(ctx context.Context, uuid string, has
 		return ann, resp.Header.Get(DocumentHashHeader), err
 	}
 
-	return AnnotationsBody{}, "", fmt.Errorf("write to %v returned a %v status code", draftsUrl, resp.StatusCode)
+	return AnnotationsBody{}, "", fmt.Errorf("write to %v returned a %v status code", draftsURL, resp.StatusCode)
 }
