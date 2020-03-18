@@ -48,7 +48,7 @@ func TestAnnotationsRWGTGFails(t *testing.T) {
 func TestAnnotationsRWGTGInvalidURL(t *testing.T) {
 	client, err := NewAnnotationsClient(":#", testingClient)
 	assert.Nil(t, client, "New PublishedAnnotationsWriter should not have returned a client")
-	assert.EqualError(t, err, "parse :: missing protocol scheme")
+	assert.EqualError(t, err, "parse \":\": missing protocol scheme")
 }
 
 func mockGtgServer(t *testing.T, gtgOk bool) *httptest.Server {

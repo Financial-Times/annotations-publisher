@@ -1,80 +1,19 @@
 version: 2.1
+
 orbs:
-    ft-snyk-orb: financial-times/ft-snyk-orb@0.0.12
-jobs:
-  build:
-    docker:
-      - image: golang:1
-        environment:
-          CIRCLE_TEST_REPORTS: /tmp/test-results
-          CIRCLE_COVERAGE_REPORT: /tmp/coverage-results
-    steps:
-      - checkout
-      - run:
-          name: External Dependencies
-          command: |
-            GO111MODULE=off go get github.com/mattn/goveralls
-            GO111MODULE=off go get github.com/jstemmer/go-junit-report
-      - run:
-          name: Test Results
-          command: |
-            mkdir -p ${CIRCLE_TEST_REPORTS}
-            mkdir -p ${CIRCLE_COVERAGE_REPORT}
-      - run:
-          name: Go Build
-          command: go build -mod=readonly -v
-      - run:
-          name: Run Tests
-          command: |
-            go test -mod=readonly -race -v -cover -coverprofile=${CIRCLE_COVERAGE_REPORT}/coverage.out ./... | go-junit-report > ${CIRCLE_TEST_REPORTS}/junit.xml
-      - run:
-          name: Upload Coverage
-          command: goveralls -coverprofile=${CIRCLE_COVERAGE_REPORT}/coverage.out -service=circle-ci -repotoken=${COVERALLS_TOKEN}
-      - store_test_results:
-          path: /tmp/test-results
-  dockerfile:
-    docker:
-      - image: circleci/buildpack-deps:stretch
-    steps:
-      - checkout
-      - setup_remote_docker
-      - run:
-          name: Build Dockerfile
-          command: docker build .
-  dredd:
-    docker:
-      - image: golang:1
-        environment:
-          ANNOTATIONS_PUBLISH_ENDPOINT: https://httpbin.org/post
-          ANNOTATIONS_PUBLISH_AUTH: fake-user:fake-pass
-          PUBLISHED_ANNOTATIONS_RW_ENDPOINT: https://httpbin.org/post
-    steps:
-      - checkout
-      - run:
-          name: Go Build
-          command: go build -mod=readonly -v
-      - run:
-          name: Download dredd
-          command: |
-            curl -sL https://deb.nodesource.com/setup_11.x | bash -
-            DEBIAN_FRONTEND=noninteractive apt-get install -y nodejs=11.\*
-            npm install -g --unsafe-perm --loglevel warn --user 0 --no-progress dredd@8.0.0
-            rm -rf /var/lib/apt/lists/*
-      - run:
-          name: Dredd API Testing
-          command: dredd
+  ft-golang-ci: financial-times/golang-ci@1
+
 workflows:
-  version: 2.1
-  test-and-build-docker:
+  tests_and_docker:
     jobs:
-      - build
-    #  - dredd
-      - dockerfile:
+      - ft-golang-ci/build-and-test:
+          name: build-and-test-project
+      - ft-golang-ci/docker-build:
+          name: build-docker-image
           requires:
-            - build
-      - ft-snyk-orb/scan-go-packages:
-          name: snyk-scan
-          context: org-global
-          token-variable: SNYK_TOKEN
-          requires:
-            - dockerfile
+            - build-and-test-project
+  snyk-scanning:
+    jobs:
+      - ft-golang-ci/scan:
+          name: scan-dependencies
+          context: cm-team-snyk

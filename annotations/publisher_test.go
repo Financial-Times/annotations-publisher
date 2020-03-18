@@ -88,7 +88,7 @@ func TestPublishFailsInvalidURL(t *testing.T) {
 
 	body := make(map[string]interface{})
 	err := publisher.Publish(tid.TransactionAwareContext(context.Background(), "tid"), "a-valid-uuid", body)
-	assert.EqualError(t, err, "parse :: missing protocol scheme")
+	assert.EqualError(t, err, "parse \":\": missing protocol scheme")
 
 	draftAnnotationsClient.AssertExpectations(t)
 	publishedAnnotationsClient.AssertExpectations(t)
@@ -101,7 +101,7 @@ func TestPublishRequestFailsServerUnavailable(t *testing.T) {
 
 	body := make(map[string]interface{})
 	err := publisher.Publish(tid.TransactionAwareContext(context.Background(), "tid"), "a-valid-uuid", body)
-	assert.EqualError(t, err, "Post /publish: unsupported protocol scheme \"\"")
+	assert.EqualError(t, err, "Post \"/publish\": unsupported protocol scheme \"\"")
 
 	draftAnnotationsClient.AssertExpectations(t)
 	publishedAnnotationsClient.AssertExpectations(t)
@@ -216,7 +216,7 @@ func TestPublisherGTGDoRequestFails(t *testing.T) {
 	publishedAnnotationsClient := &mockAnnotationsClient{}
 	publisher := NewPublisher("originSystemID", draftAnnotationsClient, publishedAnnotationsClient, "publishEndpoint", "user:pass", "/__gtg", testingClient)
 	err := publisher.GTG()
-	assert.EqualError(t, err, "Get /__gtg: unsupported protocol scheme \"\"")
+	assert.EqualError(t, err, "Get \"/__gtg\": unsupported protocol scheme \"\"")
 }
 
 func TestPublisherGTGInvalidURL(t *testing.T) {
@@ -224,7 +224,7 @@ func TestPublisherGTGInvalidURL(t *testing.T) {
 	publishedAnnotationsClient := &mockAnnotationsClient{}
 	publisher := NewPublisher("originSystemID", draftAnnotationsClient, publishedAnnotationsClient, "publishEndpoint", "user:pass", ":#", testingClient)
 	err := publisher.GTG()
-	assert.EqualError(t, err, "parse :: missing protocol scheme")
+	assert.EqualError(t, err, "parse \":\": missing protocol scheme")
 }
 
 func TestPublishFromStore(t *testing.T) {
