@@ -40,7 +40,7 @@ spec:
         - name: ANNOTATIONS_PUBLISH_AUTH
           valueFrom:
             secretKeyRef:
-              name: upp-annotations
+              name: annotations-publisher
               key: publish.auth
         ports:
         - containerPort: 8080
