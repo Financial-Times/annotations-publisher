@@ -40,7 +40,11 @@ spec:
         - name: ANNOTATIONS_PUBLISH_AUTH
           valueFrom:
             secretKeyRef:
+{{- if .Values.eksCluster }}
+              name: annotations-publisher
+{{- else }}
               name: upp-annotations
+{{- end }}
               key: publish.auth
         ports:
         - containerPort: 8080
