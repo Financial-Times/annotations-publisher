@@ -1,8 +1,4 @@
-{{- if .Values.eksCluster }}
 apiVersion: apps/v1
-{{- else }}
-apiVersion: extensions/v1beta1
-{{- end }}
 kind: Deployment
 metadata:
   name: {{ .Values.service.name }}
@@ -44,11 +40,7 @@ spec:
         - name: ANNOTATIONS_PUBLISH_AUTH
           valueFrom:
             secretKeyRef:
-{{- if .Values.eksCluster }}
               name: annotations-publisher
-{{- else }}
-              name: upp-annotations
-{{- end }}
               key: publish.auth
         ports:
         - containerPort: 8080
