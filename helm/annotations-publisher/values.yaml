@@ -9,4 +9,4 @@ image:
   repository: coco/annotations-publisher
   pullPolicy: Always
 
-eksCluster: false
+eksCluster: true
