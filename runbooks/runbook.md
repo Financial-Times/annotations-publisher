@@ -27,11 +27,6 @@ No
 ## Contains Sensitive Data
 No
 
-## Dependencies
-- cms-metadata-notifier
-- generic-rw-aurora
-- draft-annotations-api
-
 ## Failover Architecture Type
 ActiveActive
 
