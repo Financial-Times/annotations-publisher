@@ -40,8 +40,8 @@ spec:
         - name: ANNOTATIONS_PUBLISH_AUTH
           valueFrom:
             secretKeyRef:
-              name: annotations-publisher
-              key: publish.auth
+              name: doppler-global-secrets
+              key: ANNOTATIONS_PUBLISHER_PUBLISH_AUTH
         ports:
         - containerPort: 8080
         livenessProbe:

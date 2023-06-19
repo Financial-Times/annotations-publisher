@@ -13,24 +13,6 @@ Platinum
 
 ## Lifecycle Stage
 Production
-
-## Delivered By
-content
-
-## Supported By
-content
-
-## Known About By
-
-- elitsa.pavlova
-- kalin.arsov
-- marina.chompalova
-- miroslav.gatsanoga
-- ivan.nikolov
-- donislav.belev
-- mihail.mihaylov
-- boyko.boykov
-
 ## Host Platform
 AWS
 
@@ -44,11 +26,6 @@ No
 
 ## Contains Sensitive Data
 No
-
-## Dependencies
-- cms-metadata-notifier
-- generic-rw-aurora
-- draft-annotations-api
 
 ## Failover Architecture Type
 ActiveActive
