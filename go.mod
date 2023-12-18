@@ -22,7 +22,7 @@ require (
 	github.com/sirupsen/logrus v1.0.3
 	github.com/stretchr/objx v0.0.0-20150928122152-1a9d0bb9f541 // indirect
 	github.com/stretchr/testify v1.1.5-0.20171018052257-2aa2c176b9da
-	golang.org/x/crypto v0.0.0-20170825220121-81e90905daef // indirect
+	golang.org/x/crypto v0.17.0 // indirect
 	gopkg.in/airbrake/gobrake.v2 v2.0.9 // indirect
 	gopkg.in/check.v1 v1.0.0-20190902080502-41f04d3bba15 // indirect
 	gopkg.in/gemnasium/logrus-airbrake-hook.v2 v2.1.2 // indirect
