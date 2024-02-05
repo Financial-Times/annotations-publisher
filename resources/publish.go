@@ -73,10 +73,6 @@ func saveAndPublish(ctx context.Context, publisher annotations.Publisher, uuid s
 		writeMsg(w, http.StatusGatewayTimeout, err.Error())
 		return
 	}
-	if err == annotations.ErrInvalidAuthentication { // the service config needs to be updated for this to work
-		writeMsg(w, http.StatusInternalServerError, err.Error())
-		return
-	}
 	if err == annotations.ErrDraftNotFound {
 		writeMsg(w, http.StatusNotFound, err.Error())
 		return

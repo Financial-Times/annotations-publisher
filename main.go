@@ -51,29 +51,18 @@ func main() {
 		EnvVar: "DRAFT_ANNOTATIONS_RW_ENDPOINT",
 	})
 
-	writerEndpoint := app.String(cli.StringOpt{
-		Name:   "published-annotations-rw-endpoint",
-		Value:  "http://generic-rw-aurora:8080/published/content/%s/annotations",
-		Desc:   "Endpoint for saving/reading published annotations",
-		EnvVar: "PUBLISHED_ANNOTATIONS_RW_ENDPOINT",
-	})
-
 	annotationsEndpoint := app.String(cli.StringOpt{
 		Name:   "annotations-publish-endpoint",
+		Value:  "http://cms-metadata-notifier:8080/notify",
 		Desc:   "Endpoint to publish annotations to UPP",
 		EnvVar: "ANNOTATIONS_PUBLISH_ENDPOINT",
 	})
 
 	annotationsGTGEndpoint := app.String(cli.StringOpt{
 		Name:   "annotations-publish-gtg-endpoint",
+		Value:  "http://cms-metadata-notifier:8080/__gtg",
 		Desc:   "GTG Endpoint for publishing annotations to UPP",
 		EnvVar: "ANNOTATIONS_PUBLISH_GTG_ENDPOINT",
-	})
-
-	annotationsAuth := app.String(cli.StringOpt{
-		Name:   "annotations-publish-auth",
-		Desc:   "Basic auth to use for publishing annotations, in the format username:password",
-		EnvVar: "ANNOTATIONS_PUBLISH_AUTH",
 	})
 
 	originSystemID := app.String(cli.StringOpt{
@@ -115,13 +104,8 @@ func main() {
 			log.WithError(err).Fatal("Failed to create new draft annotations writer.")
 		}
 
-		publishedAnnotationsRW, err := annotations.NewAnnotationsClient(*writerEndpoint, httpClient)
-		if err != nil {
-			log.WithError(err).Fatal("Failed to create new published annotations writer.")
-		}
-
-		publisher := annotations.NewPublisher(*originSystemID, draftAnnotationsRW, publishedAnnotationsRW, *annotationsEndpoint, *annotationsAuth, *annotationsGTGEndpoint, httpClient)
-		healthService := health.NewHealthService(*appSystemCode, *appName, appDescription, publisher, publishedAnnotationsRW, draftAnnotationsRW)
+		publisher := annotations.NewPublisher(*originSystemID, draftAnnotationsRW, *annotationsEndpoint, *annotationsGTGEndpoint, httpClient)
+		healthService := health.NewHealthService(*appSystemCode, *appName, appDescription, publisher, draftAnnotationsRW)
 
 		serveEndpoints(*port, apiYml, publisher, healthService, timeout)
 	}

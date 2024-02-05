@@ -17,18 +17,16 @@ type ExternalService interface {
 type HealthService struct {
 	fthealth.HealthCheck
 	publisher ExternalService
-	writer    ExternalService
 	draftsRW  ExternalService
 }
 
 // NewHealthService returns a new HealthService
-func NewHealthService(appSystemCode string, appName string, appDescription string, publisher ExternalService, writer ExternalService, draftsRW ExternalService) *HealthService {
-	service := &HealthService{publisher: publisher, writer: writer, draftsRW: draftsRW}
+func NewHealthService(appSystemCode string, appName string, appDescription string, publisher ExternalService, draftsRW ExternalService) *HealthService {
+	service := &HealthService{publisher: publisher, draftsRW: draftsRW}
 	service.SystemCode = appSystemCode
 	service.Name = appName
 	service.Description = appDescription
 	service.Checks = []fthealth.Check{
-		service.writerCheck(),
 		service.publishCheck(),
 		service.draftsCheck(),
 	}
@@ -59,25 +57,6 @@ func (service *HealthService) publishHealthChecker() (string, error) {
 	return "UPP Publishing Pipeline is healthy", nil
 }
 
-func (service *HealthService) writerCheck() fthealth.Check {
-	return fthealth.Check{
-		ID:               "check-annotations-writer-health",
-		BusinessImpact:   "Annotations cannot be published to UPP",
-		Name:             "Check the PAC annotations R/W service",
-		PanicGuide:       "https://dewey.ft.com/annotations-publisher.html",
-		Severity:         1,
-		TechnicalSummary: fmt.Sprintf("Generic R/W service for saving published annotations is not available at %v", service.writer.Endpoint()),
-		Checker:          service.writerHealthChecker,
-	}
-}
-
-func (service *HealthService) writerHealthChecker() (string, error) {
-	if err := service.writer.GTG(); err != nil {
-		return "PAC annotations writer is not healthy", err
-	}
-	return "PAC annotations writer is healthy", nil
-}
-
 func (service *HealthService) draftsCheck() fthealth.Check {
 	return fthealth.Check{
 		ID:               "check-draft-annotations-health",
@@ -97,17 +76,19 @@ func (service *HealthService) draftsHealthChecker() (string, error) {
 	return "PAC drafts annotations reader writer is healthy", nil
 }
 
+//nolint:all
 func (service *HealthService) GTG() gtg.Status {
+	var checks []gtg.StatusChecker
 
-	writerCheck := func() gtg.Status {
-		msg, err := service.writerCheck().Checker()
-		if err != nil {
-			return gtg.Status{GoodToGo: false, Message: msg}
-		}
+	for idx := range service.Checks {
+		check := service.Checks[idx]
 
-		return gtg.Status{GoodToGo: true, Message: "OK"}
+		checks = append(checks, func() gtg.Status {
+			if _, err := check.Checker(); err != nil {
+				return gtg.Status{GoodToGo: false, Message: err.Error()}
+			}
+			return gtg.Status{GoodToGo: true}
+		})
 	}
-
-	// switch to 'gtg.FailFastParallelCheck' if there are multiple checkers in the future.
-	return gtg.FailFastSequentialChecker([]gtg.StatusChecker{writerCheck})()
+	return gtg.FailFastParallelCheck(checks)()
 }

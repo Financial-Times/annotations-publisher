@@ -219,27 +219,6 @@ func TestPublishFailed(t *testing.T) {
 	pub.AssertExpectations(t)
 }
 
-func TestPublishAuthenticationInvalid(t *testing.T) {
-	r := vestigo.NewRouter()
-	pub := &mockPublisher{}
-	pub.On("SaveAndPublish", mock.AnythingOfType("*context.timerCtx"), "a-valid-uuid", "hash", mock.Anything).Return(annotations.ErrInvalidAuthentication)
-
-	r.Post("/drafts/content/:uuid/annotations/publish", Publish(pub, timeout))
-
-	w := httptest.NewRecorder()
-	req := httptest.NewRequest("POST", "/drafts/content/a-valid-uuid/annotations/publish", strings.NewReader(testPublishBody))
-	req.Header.Add(annotations.PreviousDocumentHashHeader, "hash")
-
-	r.ServeHTTP(w, req)
-
-	resp, err := marshal(w.Body)
-	require.NoError(t, err)
-	assert.Equal(t, http.StatusInternalServerError, w.Code)
-	assert.Equal(t, "Publish authentication is invalid", resp["message"])
-
-	pub.AssertExpectations(t)
-}
-
 func TestPublishFromStore(t *testing.T) {
 	r := vestigo.NewRouter()
 	pub := &mockPublisher{}
