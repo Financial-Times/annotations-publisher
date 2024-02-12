@@ -8,3 +8,9 @@ replicaCount: 2
 image:
   repository: coco/annotations-publisher
   pullPolicy: Always
+
+env:
+  annotationsPublishEndpoint: "http://cms-metadata-notifier:8080/notify"
+  annotationsPublishGTGEndpoint: "http://cms-metadata-notifier:8080/__gtg"
+  draftAnnotationsEndpoint: "http://draft-annotations-api:8080/drafts/content/%v/annotations"
+  httpClientTimeout: "8s"
