@@ -21,8 +21,8 @@ const (
 
 type AnnotationsClient interface {
 	health.ExternalService
-	GetAnnotations(ctx context.Context, uuid string) (AnnotationsBody, string, error)
-	SaveAnnotations(ctx context.Context, uuid string, hash string, data AnnotationsBody) (AnnotationsBody, string, error)
+	GetAnnotations(ctx context.Context, uuid string) (map[string]interface{}, string, error)
+	SaveAnnotations(ctx context.Context, uuid string, hash string, data map[string]interface{}) (map[string]interface{}, string, error)
 }
 
 type genericRWClient struct {
@@ -72,11 +72,11 @@ func (rw *genericRWClient) Endpoint() string {
 	return rw.rwEndpoint
 }
 
-func (rw *genericRWClient) GetAnnotations(ctx context.Context, uuid string) (AnnotationsBody, string, error) {
+func (rw *genericRWClient) GetAnnotations(ctx context.Context, uuid string) (map[string]interface{}, string, error) {
 	draftsURL := fmt.Sprintf(rw.rwEndpoint, uuid)
 	req, err := http.NewRequest("GET", draftsURL, nil)
 	if err != nil {
-		return AnnotationsBody{}, "", err
+		return map[string]interface{}{}, "", err
 	}
 
 	q := req.URL.Query()
@@ -88,35 +88,35 @@ func (rw *genericRWClient) GetAnnotations(ctx context.Context, uuid string) (Ann
 
 	resp, err := rw.client.Do(req.WithContext(ctx))
 	if err != nil {
-		return AnnotationsBody{}, "", err
+		return map[string]interface{}{}, "", err
 	}
 
 	defer resp.Body.Close()
 
 	if resp.StatusCode == http.StatusNotFound {
-		return AnnotationsBody{}, "", ErrDraftNotFound
+		return map[string]interface{}{}, "", ErrDraftNotFound
 	}
 
 	if resp.StatusCode != http.StatusOK {
-		return AnnotationsBody{}, "", fmt.Errorf("read from %v returned a %v status code", draftsURL, resp.StatusCode)
+		return map[string]interface{}{}, "", fmt.Errorf("read from %v returned a %v status code", draftsURL, resp.StatusCode)
 	}
 
 	hash := resp.Header.Get(DocumentHashHeader)
-	ann := AnnotationsBody{}
+	var ann map[string]interface{}
 	err = json.NewDecoder(resp.Body).Decode(&ann)
 
 	return ann, hash, err
 }
 
-func (rw *genericRWClient) SaveAnnotations(ctx context.Context, uuid string, hash string, data AnnotationsBody) (AnnotationsBody, string, error) {
+func (rw *genericRWClient) SaveAnnotations(ctx context.Context, uuid string, hash string, data map[string]interface{}) (map[string]interface{}, string, error) {
 	draftsURL := fmt.Sprintf(rw.rwEndpoint, uuid)
 	body, err := json.Marshal(data)
 	if err != nil {
-		return AnnotationsBody{}, "", err
+		return map[string]interface{}{}, "", err
 	}
 	req, err := http.NewRequest("PUT", draftsURL, bytes.NewReader(body))
 	if err != nil {
-		return AnnotationsBody{}, "", err
+		return map[string]interface{}{}, "", err
 	}
 
 	req.Header.Set(PreviousDocumentHashHeader, hash)
@@ -124,22 +124,21 @@ func (rw *genericRWClient) SaveAnnotations(ctx context.Context, uuid string, has
 
 	resp, err := rw.client.Do(req.WithContext(ctx))
 	if err != nil {
-		return AnnotationsBody{}, "", err
+		return map[string]interface{}{}, "", err
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode == http.StatusOK || resp.StatusCode == http.StatusCreated {
-		var ann AnnotationsBody
+		var ann map[string]interface{}
 		// deal with inconsistency between draft-annotations-api and generic-rw-aurora in their responses from PUT requests
 		if resp.ContentLength == 0 {
 			ann = data
 		} else {
-			ann = AnnotationsBody{}
 			err = json.NewDecoder(resp.Body).Decode(&ann)
 		}
 
 		return ann, resp.Header.Get(DocumentHashHeader), err
 	}
 
-	return AnnotationsBody{}, "", fmt.Errorf("write to %v returned a %v status code", draftsURL, resp.StatusCode)
+	return map[string]interface{}{}, "", fmt.Errorf("write to %v returned a %v status code", draftsURL, resp.StatusCode)
 }

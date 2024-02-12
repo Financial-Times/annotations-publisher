@@ -65,13 +65,6 @@ func main() {
 		EnvVar: "ANNOTATIONS_PUBLISH_GTG_ENDPOINT",
 	})
 
-	originSystemID := app.String(cli.StringOpt{
-		Name:   "origin-system-id",
-		Value:  "http://cmdb.ft.com/systems/pac",
-		Desc:   "The system this publish originated from",
-		EnvVar: "ORIGIN_SYSTEM_ID",
-	})
-
 	apiYml := app.String(cli.StringOpt{
 		Name:   "api-yml",
 		Value:  "./api.yml",
@@ -104,7 +97,7 @@ func main() {
 			log.WithError(err).Fatal("Failed to create new draft annotations writer.")
 		}
 
-		publisher := annotations.NewPublisher(*originSystemID, draftAnnotationsRW, *annotationsEndpoint, *annotationsGTGEndpoint, httpClient)
+		publisher := annotations.NewPublisher(draftAnnotationsRW, *annotationsEndpoint, *annotationsGTGEndpoint, httpClient)
 		healthService := health.NewHealthService(*appSystemCode, *appName, appDescription, publisher, draftAnnotationsRW)
 
 		serveEndpoints(*port, apiYml, publisher, healthService, timeout)

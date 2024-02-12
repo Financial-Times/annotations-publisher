@@ -3,7 +3,7 @@ package resources
 import (
 	"context"
 	"encoding/json"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"strconv"
 	"strings"
@@ -23,6 +23,13 @@ func Publish(publisher annotations.Publisher, httpTimeOut time.Duration) func(w 
 		ctx, cancel := context.WithTimeout(tid.TransactionAwareContext(context.Background(), txid), httpTimeOut)
 		defer cancel()
 
+		origin := r.Header.Get(annotations.OriginSystemIDHeader)
+		if origin == "" {
+			writeMsg(w, http.StatusBadRequest, "Invalid request: X-Origin-System-Id header missing")
+			return
+		}
+		ctx = context.WithValue(ctx, annotations.CtxOriginSystemIDKey(annotations.OriginSystemIDHeader), origin)
+
 		uuid := vestigo.Param(r, "uuid")
 		if uuid == "" {
 			writeMsg(w, http.StatusBadRequest, "Please specify a valid uuid in the request")
@@ -33,9 +40,7 @@ func Publish(publisher annotations.Publisher, httpTimeOut time.Duration) func(w 
 		hash := r.Header.Get(annotations.PreviousDocumentHashHeader)
 		log.WithFields(log.Fields{"transaction_id": txid, "uuid": uuid, "fromStore": fromStore}).Info("publish")
 
-		var body annotations.AnnotationsBody
-
-		bodyBytes, err := ioutil.ReadAll(r.Body)
+		bodyBytes, err := io.ReadAll(r.Body)
 		if err != nil {
 			mlog.WithField("reason", err).Warn("error reading body")
 			writeMsg(w, http.StatusBadRequest, "Failed to read request body. Please provide a valid json request body")
@@ -54,8 +59,10 @@ func Publish(publisher annotations.Publisher, httpTimeOut time.Duration) func(w 
 			publishFromStore(ctx, publisher, uuid, w)
 			return
 		}
+
+		var body map[string]interface{}
 		err = json.Unmarshal(bodyBytes, &body)
-		if err != nil || len(body.Annotations) == 0 {
+		if err != nil {
 			mlog.WithField("reason", err).Warn("failed to unmarshal publish body")
 			writeMsg(w, http.StatusBadRequest, "Failed to process request json. Please provide a valid json request body")
 			return
@@ -64,7 +71,7 @@ func Publish(publisher annotations.Publisher, httpTimeOut time.Duration) func(w 
 	}
 }
 
-func saveAndPublish(ctx context.Context, publisher annotations.Publisher, uuid string, hash string, w http.ResponseWriter, body annotations.AnnotationsBody) {
+func saveAndPublish(ctx context.Context, publisher annotations.Publisher, uuid string, hash string, w http.ResponseWriter, body map[string]interface{}) {
 	txid, _ := tid.GetTransactionIDFromContext(ctx)
 	mlog := log.WithField(tid.TransactionIDKey, txid)
 

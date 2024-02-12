@@ -67,7 +67,7 @@ func mockGtgServer(t *testing.T, gtgOk bool) *httptest.Server {
 	return httptest.NewServer(r)
 }
 
-func mockGetAnnotations(t *testing.T, expectedTid string, annotations map[string]AnnotationsBody, documentHash string, responseStatus int) http.HandlerFunc {
+func mockGetAnnotations(t *testing.T, expectedTid string, annotations map[string]interface{}, documentHash string, responseStatus int) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		assert.Equal(t, expectedTid, r.Header.Get(tid.TransactionIDHeader), "transaction id")
 
@@ -97,15 +97,9 @@ func TestGetAnnotations(t *testing.T) {
 	testTid := "tid_test"
 	testCtx := tid.TransactionAwareContext(context.Background(), testTid)
 	testUUID := uuid.New()
-	expectedAnnotations := AnnotationsBody{Annotations: []Annotation{
-		{
-			Predicate: "foo",
-			ConceptID: "bar",
-		},
-	},
-	}
+	expectedAnnotations := map[string]interface{}{"annotations": map[string]interface{}{"predicate": "foo", "id": "bar"}}
 
-	testAnnotations := map[string]AnnotationsBody{
+	testAnnotations := map[string]interface{}{
 		testUUID: expectedAnnotations,
 	}
 
@@ -131,7 +125,7 @@ func TestGetAnnotationsNotFound(t *testing.T) {
 	testCtx := tid.TransactionAwareContext(context.Background(), testTid)
 
 	r := vestigo.NewRouter()
-	r.Get(draftsURL, mockGetAnnotations(t, testTid, map[string]AnnotationsBody{}, "", http.StatusNotFound))
+	r.Get(draftsURL, mockGetAnnotations(t, testTid, map[string]interface{}{}, "", http.StatusNotFound))
 
 	server := httptest.NewServer(r)
 	defer server.Close()
@@ -148,7 +142,7 @@ func TestGetAnnotationsFailure(t *testing.T) {
 	testCtx := tid.TransactionAwareContext(context.Background(), testTid)
 
 	r := vestigo.NewRouter()
-	r.Get(draftsURL, mockGetAnnotations(t, testTid, map[string]AnnotationsBody{}, "", http.StatusInternalServerError))
+	r.Get(draftsURL, mockGetAnnotations(t, testTid, map[string]interface{}{}, "", http.StatusInternalServerError))
 
 	server := httptest.NewServer(r)
 	defer server.Close()
@@ -170,7 +164,7 @@ func mockSaveAnnotations(t *testing.T, expectedTid string, expectedUUID string, 
 			assert.Equal(t, expectedUUID, uuid)
 		}
 
-		var body AnnotationsBody
+		var body map[string]interface{}
 		err := json.NewDecoder(r.Body).Decode(&body)
 		if err != nil {
 			log.Error(err)
@@ -201,14 +195,7 @@ func TestSaveAnnotations(t *testing.T) {
 	testTid := "tid_test"
 	testCtx := tid.TransactionAwareContext(context.Background(), testTid)
 	testUUID := uuid.New()
-	testAnnotations := AnnotationsBody{
-		Annotations: []Annotation{
-			{
-				Predicate: "foo",
-				ConceptID: "bar",
-			},
-		},
-	}
+	testAnnotations := map[string]interface{}{"annotations": map[string]interface{}{"predicate": "foo", "id": "bar"}}
 
 	updatedHash := "newhashnewhashnewhash"
 	previousHash := "oldhasholdhasholdhash"
@@ -232,13 +219,7 @@ func TestSaveAnnotationsCreatedStatus(t *testing.T) {
 	testTid := "tid_test"
 	testCtx := tid.TransactionAwareContext(context.Background(), testTid)
 	testUUID := uuid.New()
-	testAnnotations := AnnotationsBody{Annotations: []Annotation{
-		{
-			Predicate: "foo",
-			ConceptID: "bar",
-		},
-	},
-	}
+	testAnnotations := map[string]interface{}{"annotations": map[string]interface{}{"predicate": "foo", "id": "bar"}}
 
 	updatedHash := "newhashnewhashnewhash"
 	previousHash := "oldhasholdhasholdhash"
@@ -262,13 +243,7 @@ func TestSaveAnnotationsError(t *testing.T) {
 	testTid := "tid_test"
 	testCtx := tid.TransactionAwareContext(context.Background(), testTid)
 	testUUID := uuid.New()
-	testAnnotations := AnnotationsBody{Annotations: []Annotation{
-		{
-			Predicate: "foo",
-			ConceptID: "bar",
-		},
-	},
-	}
+	testAnnotations := map[string]interface{}{"annotations": map[string]interface{}{"predicate": "foo", "id": "bar"}}
 
 	r := vestigo.NewRouter()
 	r.Put(draftsURL, mockSaveAnnotations(t, testTid, testUUID, "", "", http.StatusInternalServerError, true))
@@ -288,14 +263,7 @@ func TestSaveAnnotationsWriterReturnsNoBody(t *testing.T) {
 	testTid := "tid_test"
 	testCtx := tid.TransactionAwareContext(context.Background(), testTid)
 	testUUID := uuid.New()
-	testAnnotations := AnnotationsBody{
-		Annotations: []Annotation{
-			{
-				Predicate: "foo",
-				ConceptID: "bar",
-			},
-		},
-	}
+	testAnnotations := map[string]interface{}{"annotations": map[string]interface{}{"predicate": "foo", "id": "bar"}}
 
 	r := vestigo.NewRouter()
 	r.Put(draftsURL, mockSaveAnnotations(t, testTid, testUUID, "", "", http.StatusOK, false))
