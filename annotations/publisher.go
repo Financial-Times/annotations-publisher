@@ -6,12 +6,17 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"net"
+	"net/http"
+
 	"github.com/Financial-Times/annotations-publisher/health"
 	tid "github.com/Financial-Times/transactionid-utils-go"
 	log "github.com/sirupsen/logrus"
-	"net"
-	"net/http"
 )
+
+type CtxOriginSystemIDKey string
+
+const OriginSystemIDHeader string = "X-Origin-System-Id"
 
 var (
 	ErrDraftNotFound  = errors.New("draft was not found")
@@ -23,23 +28,22 @@ type Publisher interface {
 	health.ExternalService
 	Publish(ctx context.Context, uuid string, body map[string]interface{}) error
 	PublishFromStore(ctx context.Context, uuid string) error
-	SaveAndPublish(ctx context.Context, uuid string, hash string, body AnnotationsBody) error
+	SaveAndPublish(ctx context.Context, uuid string, hash string, body map[string]interface{}) error
 }
 
 type uppPublisher struct {
 	client                 *http.Client
-	originSystemID         string
 	draftAnnotationsClient AnnotationsClient
 	publishEndpoint        string
 	gtgEndpoint            string
 }
 
 // NewPublisher returns a new Publisher instance
-func NewPublisher(originSystemID string, draftAnnotationsClient AnnotationsClient, publishEndpoint string, gtgEndpoint string, client *http.Client) Publisher {
+func NewPublisher(draftAnnotationsClient AnnotationsClient, publishEndpoint string, gtgEndpoint string, client *http.Client) Publisher {
 	log.WithField("endpoint", draftAnnotationsClient.Endpoint()).Info("draft annotations r/w endpoint")
 	log.WithField("endpoint", publishEndpoint).Info("publish endpoint")
 
-	return &uppPublisher{client: client, originSystemID: originSystemID, draftAnnotationsClient: draftAnnotationsClient, publishEndpoint: publishEndpoint, gtgEndpoint: gtgEndpoint}
+	return &uppPublisher{client: client, draftAnnotationsClient: draftAnnotationsClient, publishEndpoint: publishEndpoint, gtgEndpoint: gtgEndpoint}
 }
 
 // Publish sends the annotations to UPP via the configured publishEndpoint. Requests contain X-Origin-System-Id and X-Request-Id and a User-Agent as provided.
@@ -58,7 +62,7 @@ func (a *uppPublisher) Publish(ctx context.Context, uuid string, body map[string
 		return err
 	}
 
-	req.Header.Add("X-Origin-System-Id", a.originSystemID)
+	req.Header.Add("X-Origin-System-Id", ctx.Value(CtxOriginSystemIDKey(OriginSystemIDHeader)).(string))
 	req.Header.Add("Content-Type", "application/json")
 
 	resp, err := a.client.Do(req.WithContext(ctx))
@@ -114,9 +118,9 @@ func (a *uppPublisher) PublishFromStore(ctx context.Context, uuid string) error 
 	txid, _ := tid.GetTransactionIDFromContext(ctx)
 	mlog := log.WithField("transaction_id", txid)
 
-	var draft AnnotationsBody
+	var draft map[string]interface{}
 	var hash string
-	var published AnnotationsBody
+	var published map[string]interface{}
 	var err error
 
 	if draft, hash, err = a.draftAnnotationsClient.GetAnnotations(ctx, uuid); err == nil {
@@ -132,15 +136,12 @@ func (a *uppPublisher) PublishFromStore(ctx context.Context, uuid string) error 
 		return err
 	}
 
-	uppPublishBody := map[string]interface{}{
-		"annotations": published.Annotations,
-	}
-	err = a.Publish(ctx, uuid, uppPublishBody)
+	err = a.Publish(ctx, uuid, published)
 
 	return err
 }
 
-func (a *uppPublisher) SaveAndPublish(ctx context.Context, uuid string, hash string, body AnnotationsBody) error {
+func (a *uppPublisher) SaveAndPublish(ctx context.Context, uuid string, hash string, body map[string]interface{}) error {
 	txid, _ := tid.GetTransactionIDFromContext(ctx)
 	mlog := log.WithField("transaction_id", txid)
 	_, _, err := a.draftAnnotationsClient.SaveAnnotations(ctx, uuid, hash, body)

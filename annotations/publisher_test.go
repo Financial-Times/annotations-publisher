@@ -32,14 +32,14 @@ type mockAnnotationsClient struct {
 	mock.Mock
 }
 
-func (m *mockAnnotationsClient) GetAnnotations(ctx context.Context, uuid string) (AnnotationsBody, string, error) {
+func (m *mockAnnotationsClient) GetAnnotations(ctx context.Context, uuid string) (map[string]interface{}, string, error) {
 	args := m.Called(ctx, uuid)
-	return args.Get(0).(AnnotationsBody), args.String(1), args.Error(2)
+	return args.Get(0).(map[string]interface{}), args.String(1), args.Error(2)
 }
 
-func (m *mockAnnotationsClient) SaveAnnotations(ctx context.Context, uuid string, hash string, data AnnotationsBody) (AnnotationsBody, string, error) {
+func (m *mockAnnotationsClient) SaveAnnotations(ctx context.Context, uuid string, hash string, data map[string]interface{}) (map[string]interface{}, string, error) {
 	args := m.Called(ctx, uuid, hash, data)
-	return args.Get(0).(AnnotationsBody), args.String(1), args.Error(2)
+	return args.Get(0).(map[string]interface{}), args.String(1), args.Error(2)
 }
 
 func (m *mockAnnotationsClient) GTG() error {
@@ -57,9 +57,11 @@ func TestPublish(t *testing.T) {
 	defer server.Close()
 
 	draftAnnotationsClient := &mockAnnotationsClient{}
-	publisher := NewPublisher("originSystemID", draftAnnotationsClient, server.URL+"/notify", server.URL+"/__gtg", testingClient)
+	publisher := NewPublisher(draftAnnotationsClient, server.URL+"/notify", server.URL+"/__gtg", testingClient)
 
-	err := publisher.Publish(tid.TransactionAwareContext(context.Background(), "tid"), uuid, make(map[string]interface{}))
+	ctx := tid.TransactionAwareContext(context.Background(), "tid")
+	ctx = context.WithValue(ctx, CtxOriginSystemIDKey(OriginSystemIDHeader), "originSystemID")
+	err := publisher.Publish(ctx, uuid, make(map[string]interface{}))
 	assert.NoError(t, err)
 
 	draftAnnotationsClient.AssertExpectations(t)
@@ -67,11 +69,13 @@ func TestPublish(t *testing.T) {
 
 func TestPublishFailsToMarshalBodyToJSON(t *testing.T) {
 	draftAnnotationsClient := &mockAnnotationsClient{}
-	publisher := NewPublisher("originSystemID", draftAnnotationsClient, "/notify", "/__gtg", testingClient)
+	publisher := NewPublisher(draftAnnotationsClient, "/notify", "/__gtg", testingClient)
 
 	body := make(map[string]interface{})
 	body["dodgy!"] = func() {}
-	err := publisher.Publish(tid.TransactionAwareContext(context.Background(), "tid"), "a-valid-uuid", body)
+	ctx := tid.TransactionAwareContext(context.Background(), "tid")
+	ctx = context.WithValue(ctx, CtxOriginSystemIDKey(OriginSystemIDHeader), "originSystemID")
+	err := publisher.Publish(ctx, "a-valid-uuid", body)
 	assert.EqualError(t, err, "json: unsupported type: func()")
 
 	draftAnnotationsClient.AssertExpectations(t)
@@ -79,10 +83,12 @@ func TestPublishFailsToMarshalBodyToJSON(t *testing.T) {
 
 func TestPublishFailsInvalidURL(t *testing.T) {
 	draftAnnotationsClient := &mockAnnotationsClient{}
-	publisher := NewPublisher("originSystemID", draftAnnotationsClient, ":#", "/__gtg", testingClient)
+	publisher := NewPublisher(draftAnnotationsClient, ":#", "/__gtg", testingClient)
 
 	body := make(map[string]interface{})
-	err := publisher.Publish(tid.TransactionAwareContext(context.Background(), "tid"), "a-valid-uuid", body)
+	ctx := tid.TransactionAwareContext(context.Background(), "tid")
+	ctx = context.WithValue(ctx, CtxOriginSystemIDKey(OriginSystemIDHeader), "originSystemID")
+	err := publisher.Publish(ctx, "a-valid-uuid", body)
 	assert.EqualError(t, err, "parse \":\": missing protocol scheme")
 
 	draftAnnotationsClient.AssertExpectations(t)
@@ -90,10 +96,12 @@ func TestPublishFailsInvalidURL(t *testing.T) {
 
 func TestPublishRequestFailsServerUnavailable(t *testing.T) {
 	draftAnnotationsClient := &mockAnnotationsClient{}
-	publisher := NewPublisher("originSystemID", draftAnnotationsClient, "/publish", "/__gtg", testingClient)
+	publisher := NewPublisher(draftAnnotationsClient, "/publish", "/__gtg", testingClient)
 
 	body := make(map[string]interface{})
-	err := publisher.Publish(tid.TransactionAwareContext(context.Background(), "tid"), "a-valid-uuid", body)
+	ctx := tid.TransactionAwareContext(context.Background(), "tid")
+	ctx = context.WithValue(ctx, CtxOriginSystemIDKey(OriginSystemIDHeader), "originSystemID")
+	err := publisher.Publish(ctx, "a-valid-uuid", body)
 	assert.EqualError(t, err, "Post \"/publish\": unsupported protocol scheme \"\"")
 
 	draftAnnotationsClient.AssertExpectations(t)
@@ -105,10 +113,12 @@ func TestPublishRequestUnsuccessful(t *testing.T) {
 	defer server.Close()
 
 	draftAnnotationsClient := &mockAnnotationsClient{}
-	publisher := NewPublisher("originSystemID", draftAnnotationsClient, server.URL+"/notify", server.URL+"/__gtg", testingClient)
+	publisher := NewPublisher(draftAnnotationsClient, server.URL+"/notify", server.URL+"/__gtg", testingClient)
 
 	body := make(map[string]interface{})
-	err := publisher.Publish(tid.TransactionAwareContext(context.Background(), "tid"), uuid, body)
+	ctx := tid.TransactionAwareContext(context.Background(), "tid")
+	ctx = context.WithValue(ctx, CtxOriginSystemIDKey(OriginSystemIDHeader), "originSystemID")
+	err := publisher.Publish(ctx, uuid, body)
 	assert.EqualError(t, err, fmt.Sprintf("publish to %v/notify returned a 503 status code", server.URL))
 
 	draftAnnotationsClient.AssertExpectations(t)
@@ -116,7 +126,7 @@ func TestPublishRequestUnsuccessful(t *testing.T) {
 
 func TestPublisherEndpoint(t *testing.T) {
 	draftAnnotationsClient := &mockAnnotationsClient{}
-	publisher := NewPublisher("originSystemID", draftAnnotationsClient, "/publish", "/__gtg", testingClient)
+	publisher := NewPublisher(draftAnnotationsClient, "/publish", "/__gtg", testingClient)
 	assert.Equal(t, "/publish", publisher.Endpoint())
 
 	draftAnnotationsClient.AssertExpectations(t)
@@ -128,8 +138,9 @@ func TestPublisherPublishToUppTimeout(t *testing.T) {
 	defer server.Close()
 
 	draftAnnotationsClient := &mockAnnotationsClient{}
-	publisher := NewPublisher("originSystemID", draftAnnotationsClient, server.URL+"/notify", server.URL+"/__gtg", testingClient)
+	publisher := NewPublisher(draftAnnotationsClient, server.URL+"/notify", server.URL+"/__gtg", testingClient)
 	ctx, cancel := context.WithTimeout(tid.TransactionAwareContext(context.Background(), "tid"), 10*time.Millisecond)
+	ctx = context.WithValue(ctx, CtxOriginSystemIDKey(OriginSystemIDHeader), "originSystemID")
 	defer cancel()
 
 	body := make(map[string]interface{})
@@ -144,7 +155,7 @@ func TestPublisherGTG(t *testing.T) {
 	defer server.Close()
 
 	draftAnnotationsClient := &mockAnnotationsClient{}
-	publisher := NewPublisher("originSystemID", draftAnnotationsClient, "publishEndpoint", server.URL+"/__gtg", testingClient)
+	publisher := NewPublisher(draftAnnotationsClient, "publishEndpoint", server.URL+"/__gtg", testingClient)
 	err := publisher.GTG()
 	assert.NoError(t, err)
 }
@@ -154,34 +165,28 @@ func TestPublisherGTGFails(t *testing.T) {
 	defer server.Close()
 
 	draftAnnotationsClient := &mockAnnotationsClient{}
-	publisher := NewPublisher("originSystemID", draftAnnotationsClient, "publishEndpoint", server.URL+"/__gtg", testingClient)
+	publisher := NewPublisher(draftAnnotationsClient, "publishEndpoint", server.URL+"/__gtg", testingClient)
 	err := publisher.GTG()
 	assert.EqualError(t, err, fmt.Sprintf("GTG %v returned a %v status code for UPP cms-metadata-notifier service", server.URL+"/__gtg", http.StatusServiceUnavailable))
 }
 
 func TestPublisherGTGDoRequestFails(t *testing.T) {
 	draftAnnotationsClient := &mockAnnotationsClient{}
-	publisher := NewPublisher("originSystemID", draftAnnotationsClient, "publishEndpoint", "/__gtg", testingClient)
+	publisher := NewPublisher(draftAnnotationsClient, "publishEndpoint", "/__gtg", testingClient)
 	err := publisher.GTG()
 	assert.EqualError(t, err, "Get \"/__gtg\": unsupported protocol scheme \"\"")
 }
 
 func TestPublisherGTGInvalidURL(t *testing.T) {
 	draftAnnotationsClient := &mockAnnotationsClient{}
-	publisher := NewPublisher("originSystemID", draftAnnotationsClient, "publishEndpoint", ":#", testingClient)
+	publisher := NewPublisher(draftAnnotationsClient, "publishEndpoint", ":#", testingClient)
 	err := publisher.GTG()
 	assert.EqualError(t, err, "parse \":\": missing protocol scheme")
 }
 
 func TestPublishFromStore(t *testing.T) {
 	uuid := uuid.New()
-	testAnnotations := AnnotationsBody{[]Annotation{
-		{
-			Predicate: "foo",
-			ConceptID: "bar",
-		},
-	},
-	}
+	testAnnotations := map[string]interface{}{"annotations": map[string]interface{}{"predicate": "foo", "id": "bar"}}
 	testHash := "hashhashhashhash"
 	updatedHash := "newhashnewhash"
 
@@ -190,12 +195,13 @@ func TestPublishFromStore(t *testing.T) {
 	draftAnnotationsClient.On("SaveAnnotations", mock.Anything, uuid, testHash, testAnnotations).Return(testAnnotations, updatedHash, nil)
 
 	ctx, cancel := context.WithTimeout(tid.TransactionAwareContext(context.Background(), "tid_test"), 50*time.Millisecond)
+	ctx = context.WithValue(ctx, CtxOriginSystemIDKey(OriginSystemIDHeader), "originSystemID")
 	defer cancel()
 
 	server := startMockServer(ctx, t, uuid, true, true, time.Duration(0))
 	defer server.Close()
 
-	publisher := NewPublisher("originSystemID", draftAnnotationsClient, server.URL+"/notify", "http://www.example.com/__gtg", testingClient)
+	publisher := NewPublisher(draftAnnotationsClient, server.URL+"/notify", "http://www.example.com/__gtg", testingClient)
 
 	err := publisher.PublishFromStore(ctx, uuid)
 	assert.NoError(t, err)
@@ -207,8 +213,8 @@ func TestPublishFromStoreNotFound(t *testing.T) {
 	uuid := uuid.New()
 
 	draftAnnotationsClient := &mockAnnotationsClient{}
-	draftAnnotationsClient.On("GetAnnotations", mock.Anything, uuid).Return(AnnotationsBody{}, "", ErrDraftNotFound)
-	publisher := NewPublisher("originSystemID", draftAnnotationsClient, "http://www.example.com/notify", "http://www.example.com/__gtg", testingClient)
+	draftAnnotationsClient.On("GetAnnotations", mock.Anything, uuid).Return(map[string]interface{}{}, "", ErrDraftNotFound)
+	publisher := NewPublisher(draftAnnotationsClient, "http://www.example.com/notify", "http://www.example.com/__gtg", testingClient)
 
 	ctx, cancel := context.WithTimeout(tid.TransactionAwareContext(context.Background(), "tid_test"), 50*time.Millisecond)
 	defer cancel()
@@ -222,8 +228,8 @@ func TestPublishFromStoreDraftAnnotationsGetTimeOut(t *testing.T) {
 	uuid := uuid.New()
 
 	draftAnnotationsClient := &mockAnnotationsClient{}
-	draftAnnotationsClient.On("GetAnnotations", mock.Anything, uuid).Return(AnnotationsBody{}, "", testTimeoutError{errors.New("dealine exceeded")})
-	publisher := NewPublisher("originSystemID", draftAnnotationsClient, "http://www.example.com/notify", "http://www.example.com/__gtg", testingClient)
+	draftAnnotationsClient.On("GetAnnotations", mock.Anything, uuid).Return(map[string]interface{}{}, "", testTimeoutError{errors.New("dealine exceeded")})
+	publisher := NewPublisher(draftAnnotationsClient, "http://www.example.com/notify", "http://www.example.com/__gtg", testingClient)
 
 	ctx, cancel := context.WithTimeout(tid.TransactionAwareContext(context.Background(), "tid_test"), 50*time.Millisecond)
 	defer cancel()
@@ -238,8 +244,8 @@ func TestPublishFromStoreGetDraftsFails(t *testing.T) {
 	msg := "test error"
 
 	draftAnnotationsClient := &mockAnnotationsClient{}
-	draftAnnotationsClient.On("GetAnnotations", mock.Anything, uuid).Return(AnnotationsBody{}, "", errors.New(msg))
-	publisher := NewPublisher("originSystemID", draftAnnotationsClient, "http://www.example.com/notify", "http://www.example.com/__gtg", testingClient)
+	draftAnnotationsClient.On("GetAnnotations", mock.Anything, uuid).Return(map[string]interface{}{}, "", errors.New(msg))
+	publisher := NewPublisher(draftAnnotationsClient, "http://www.example.com/notify", "http://www.example.com/__gtg", testingClient)
 
 	ctx, cancel := context.WithTimeout(tid.TransactionAwareContext(context.Background(), "tid_test"), 50*time.Millisecond)
 	defer cancel()
@@ -252,26 +258,19 @@ func TestPublishFromStoreGetDraftsFails(t *testing.T) {
 func TestPublishFromStoreSaveDraftFails(t *testing.T) {
 	msg := "test error"
 	uuid := uuid.New()
-	testAnnotations := AnnotationsBody{[]Annotation{
-		{
-			Predicate: "foo",
-			ConceptID: "bar",
-		},
-	},
-	}
-
+	testAnnotations := map[string]interface{}{"annotations": map[string]interface{}{"predicate": "foo", "id": "bar"}}
 	testHash := "hashhashhashhash"
 
 	draftAnnotationsClient := &mockAnnotationsClient{}
 	draftAnnotationsClient.On("GetAnnotations", mock.Anything, uuid).Return(testAnnotations, testHash, nil)
-	draftAnnotationsClient.On("SaveAnnotations", mock.Anything, uuid, testHash, testAnnotations).Return(AnnotationsBody{}, "", errors.New(msg))
+	draftAnnotationsClient.On("SaveAnnotations", mock.Anything, uuid, testHash, testAnnotations).Return(map[string]interface{}{}, "", errors.New(msg))
 
 	ctx, cancel := context.WithTimeout(tid.TransactionAwareContext(context.Background(), "tid_test"), 50*time.Millisecond)
 	defer cancel()
 	server := startMockServer(ctx, t, uuid, true, true, time.Duration(0))
 	defer server.Close()
 
-	publisher := NewPublisher("originSystemID", draftAnnotationsClient, server.URL+"/notify", "http://www.example.com/__gtg", testingClient)
+	publisher := NewPublisher(draftAnnotationsClient, server.URL+"/notify", "http://www.example.com/__gtg", testingClient)
 
 	err := publisher.PublishFromStore(ctx, uuid)
 	assert.EqualError(t, err, msg)
@@ -281,26 +280,19 @@ func TestPublishFromStoreSaveDraftFails(t *testing.T) {
 
 func TestPublishFromStoreSaveDraftTimeout(t *testing.T) {
 	uuid := uuid.New()
-	testAnnotations := AnnotationsBody{[]Annotation{
-		{
-			Predicate: "foo",
-			ConceptID: "bar",
-		},
-	},
-	}
-
+	testAnnotations := map[string]interface{}{"annotations": map[string]interface{}{"predicate": "foo", "id": "bar"}}
 	testHash := "hashhashhashhash"
 
 	draftAnnotationsClient := &mockAnnotationsClient{}
 	draftAnnotationsClient.On("GetAnnotations", mock.Anything, uuid).Return(testAnnotations, testHash, nil)
-	draftAnnotationsClient.On("SaveAnnotations", mock.Anything, uuid, testHash, testAnnotations).Return(AnnotationsBody{}, "", testTimeoutError{errors.New("dealine exceeded")})
+	draftAnnotationsClient.On("SaveAnnotations", mock.Anything, uuid, testHash, testAnnotations).Return(map[string]interface{}{}, "", testTimeoutError{errors.New("dealine exceeded")})
 
 	ctx, cancel := context.WithTimeout(tid.TransactionAwareContext(context.Background(), "tid_test"), 50*time.Millisecond)
 	defer cancel()
 	server := startMockServer(ctx, t, uuid, true, true, time.Duration(0))
 	defer server.Close()
 
-	publisher := NewPublisher("originSystemID", draftAnnotationsClient, server.URL+"/notify", "http://www.example.com/__gtg", testingClient)
+	publisher := NewPublisher(draftAnnotationsClient, server.URL+"/notify", "http://www.example.com/__gtg", testingClient)
 
 	err := publisher.PublishFromStore(ctx, uuid)
 	assert.EqualError(t, err, ErrServiceTimeout.Error())
@@ -312,25 +304,19 @@ func TestPublishFromStoreSaveDraftTimeout(t *testing.T) {
 func TestPublishFromStoreSavePublishedFails(t *testing.T) {
 	msg := "test error"
 	uuid := uuid.New()
-	testAnnotations := AnnotationsBody{[]Annotation{
-		{
-			Predicate: "foo",
-			ConceptID: "bar",
-		},
-	},
-	}
+	testAnnotations := map[string]interface{}{"annotations": map[string]interface{}{"predicate": "foo", "id": "bar"}}
 	testHash := "hashhashhashhash"
 
 	draftAnnotationsClient := &mockAnnotationsClient{}
 	draftAnnotationsClient.On("GetAnnotations", mock.Anything, uuid).Return(testAnnotations, testHash, nil)
-	draftAnnotationsClient.On("SaveAnnotations", mock.Anything, uuid, testHash, testAnnotations).Return(AnnotationsBody{}, "", errors.New(msg))
+	draftAnnotationsClient.On("SaveAnnotations", mock.Anything, uuid, testHash, testAnnotations).Return(map[string]interface{}{}, "", errors.New(msg))
 
 	ctx, cancel := context.WithTimeout(tid.TransactionAwareContext(context.Background(), "tid_test"), 50*time.Millisecond)
 	defer cancel()
 	server := startMockServer(ctx, t, uuid, true, true, time.Duration(0))
 	defer server.Close()
 
-	publisher := NewPublisher("originSystemID", draftAnnotationsClient, server.URL+"/notify", "http://www.example.com/__gtg", testingClient)
+	publisher := NewPublisher(draftAnnotationsClient, server.URL+"/notify", "http://www.example.com/__gtg", testingClient)
 
 	err := publisher.PublishFromStore(ctx, uuid)
 	assert.EqualError(t, err, msg)
@@ -341,25 +327,19 @@ func TestPublishFromStoreSavePublishedFails(t *testing.T) {
 //nolint:all
 func TestPublishFromStoreSavePublishedTimeout(t *testing.T) {
 	uuid := uuid.New()
-	testAnnotations := AnnotationsBody{[]Annotation{
-		{
-			Predicate: "foo",
-			ConceptID: "bar",
-		},
-	},
-	}
+	testAnnotations := map[string]interface{}{"annotations": map[string]interface{}{"predicate": "foo", "id": "bar"}}
 	testHash := "hashhashhashhash"
 
 	draftAnnotationsClient := &mockAnnotationsClient{}
 	draftAnnotationsClient.On("GetAnnotations", mock.Anything, uuid).Return(testAnnotations, testHash, nil)
-	draftAnnotationsClient.On("SaveAnnotations", mock.Anything, uuid, testHash, testAnnotations).Return(AnnotationsBody{}, "", testTimeoutError{errors.New("dealine exceeded")})
+	draftAnnotationsClient.On("SaveAnnotations", mock.Anything, uuid, testHash, testAnnotations).Return(map[string]interface{}{}, "", testTimeoutError{errors.New("dealine exceeded")})
 
 	ctx, cancel := context.WithTimeout(tid.TransactionAwareContext(context.Background(), "tid_test"), 50*time.Millisecond)
 	defer cancel()
 	server := startMockServer(ctx, t, uuid, true, true, time.Duration(0))
 	defer server.Close()
 
-	publisher := NewPublisher("originSystemID", draftAnnotationsClient, server.URL+"/notify", "http://www.example.com/__gtg", testingClient)
+	publisher := NewPublisher(draftAnnotationsClient, server.URL+"/notify", "http://www.example.com/__gtg", testingClient)
 
 	err := publisher.PublishFromStore(ctx, uuid)
 	assert.EqualError(t, err, ErrServiceTimeout.Error())
@@ -369,24 +349,19 @@ func TestPublishFromStoreSavePublishedTimeout(t *testing.T) {
 
 func TestPublishFromStorePublishFails(t *testing.T) {
 	uuid := uuid.New()
-	testAnnotations := AnnotationsBody{[]Annotation{
-		{
-			Predicate: "foo",
-			ConceptID: "bar",
-		},
-	},
-	}
+	testAnnotations := map[string]interface{}{"annotations": map[string]interface{}{"predicate": "foo", "id": "bar"}}
 
 	draftAnnotationsClient := &mockAnnotationsClient{}
 	draftAnnotationsClient.On("GetAnnotations", mock.Anything, uuid).Return(testAnnotations, "", nil)
 	draftAnnotationsClient.On("SaveAnnotations", mock.Anything, uuid, "", testAnnotations).Return(testAnnotations, "", nil)
 
 	ctx, cancel := context.WithTimeout(tid.TransactionAwareContext(context.Background(), "tid_test"), 50*time.Millisecond)
+	ctx = context.WithValue(ctx, CtxOriginSystemIDKey(OriginSystemIDHeader), "originSystemID")
 	defer cancel()
 	server := startMockServer(ctx, t, uuid, false, true, time.Duration(0))
 	defer server.Close()
 
-	publisher := NewPublisher("originSystemID", draftAnnotationsClient, server.URL+"/notify", "http://www.example.com/__gtg", testingClient)
+	publisher := NewPublisher(draftAnnotationsClient, server.URL+"/notify", "http://www.example.com/__gtg", testingClient)
 
 	err := publisher.PublishFromStore(ctx, uuid)
 	assert.EqualError(t, err, fmt.Sprintf("publish to %v/notify returned a 503 status code", server.URL))
@@ -396,16 +371,12 @@ func TestPublishFromStorePublishFails(t *testing.T) {
 
 func TestSaveAndPublish(t *testing.T) {
 	uuid := uuid.New()
-	testAnnotations := AnnotationsBody{[]Annotation{
-		{
-			Predicate: "foo",
-			ConceptID: "bar",
-		},
-	},
-	}
+	testAnnotations := map[string]interface{}{"annotations": map[string]interface{}{"predicate": "foo", "id": "bar"}}
+
 	testHash := "hashhashhashhash"
 	updatedHash := "newhashnewhash"
 	ctx, cancel := context.WithTimeout(tid.TransactionAwareContext(context.Background(), "tid_test"), 50*time.Millisecond)
+	ctx = context.WithValue(ctx, CtxOriginSystemIDKey(OriginSystemIDHeader), "originSystemID")
 	defer cancel()
 
 	draftAnnotationsClient := &mockAnnotationsClient{}
@@ -416,7 +387,7 @@ func TestSaveAndPublish(t *testing.T) {
 	server := startMockServer(ctx, t, uuid, true, true, time.Duration(0))
 	defer server.Close()
 
-	publisher := NewPublisher("originSystemID", draftAnnotationsClient, server.URL+"/notify", "http://www.example.com/__gtg", testingClient)
+	publisher := NewPublisher(draftAnnotationsClient, server.URL+"/notify", "http://www.example.com/__gtg", testingClient)
 
 	err := publisher.SaveAndPublish(ctx, uuid, testHash, testAnnotations)
 	assert.NoError(t, err)
@@ -427,19 +398,14 @@ func TestSaveAndPublish(t *testing.T) {
 func TestSaveAndPublishNotFound(t *testing.T) {
 	uuid := uuid.New()
 	testHash := "hashhashhashhash"
-	testAnnotations := AnnotationsBody{[]Annotation{
-		{
-			Predicate: "foo",
-			ConceptID: "bar",
-		},
-	},
-	}
+	testAnnotations := map[string]interface{}{"annotations": map[string]interface{}{"predicate": "foo", "id": "bar"}}
 
 	draftAnnotationsClient := &mockAnnotationsClient{}
-	draftAnnotationsClient.On("SaveAnnotations", mock.Anything, uuid, testHash, testAnnotations).Return(AnnotationsBody{}, "", ErrDraftNotFound)
-	publisher := NewPublisher("originSystemID", draftAnnotationsClient, "http://www.example.com/notify", "http://www.example.com/__gtg", testingClient)
+	draftAnnotationsClient.On("SaveAnnotations", mock.Anything, uuid, testHash, testAnnotations).Return(map[string]interface{}{}, "", ErrDraftNotFound)
+	publisher := NewPublisher(draftAnnotationsClient, "http://www.example.com/notify", "http://www.example.com/__gtg", testingClient)
 
 	ctx, cancel := context.WithTimeout(tid.TransactionAwareContext(context.Background(), "tid_test"), 50*time.Millisecond)
+	ctx = context.WithValue(ctx, CtxOriginSystemIDKey(OriginSystemIDHeader), "originSystemID")
 	defer cancel()
 	err := publisher.SaveAndPublish(ctx, uuid, testHash, testAnnotations)
 	assert.EqualError(t, err, ErrDraftNotFound.Error())
@@ -450,19 +416,14 @@ func TestSaveAndPublishNotFound(t *testing.T) {
 func TestSaveAndPublishDraftSaveAnnotationsTimeout(t *testing.T) {
 	uuid := uuid.New()
 	testHash := "hashhashhashhash"
-	testAnnotations := AnnotationsBody{[]Annotation{
-		{
-			Predicate: "foo",
-			ConceptID: "bar",
-		},
-	},
-	}
+	testAnnotations := map[string]interface{}{"annotations": map[string]interface{}{"predicate": "foo", "id": "bar"}}
 
 	draftAnnotationsClient := &mockAnnotationsClient{}
-	draftAnnotationsClient.On("SaveAnnotations", mock.Anything, uuid, testHash, testAnnotations).Return(AnnotationsBody{}, "", testTimeoutError{errors.New("dealine exceeded")})
-	publisher := NewPublisher("originSystemID", draftAnnotationsClient, "http://www.example.com/notify", "http://www.example.com/__gtg", testingClient)
+	draftAnnotationsClient.On("SaveAnnotations", mock.Anything, uuid, testHash, testAnnotations).Return(map[string]interface{}{}, "", testTimeoutError{errors.New("dealine exceeded")})
+	publisher := NewPublisher(draftAnnotationsClient, "http://www.example.com/notify", "http://www.example.com/__gtg", testingClient)
 
 	ctx, cancel := context.WithTimeout(tid.TransactionAwareContext(context.Background(), "tid_test"), 50*time.Millisecond)
+	ctx = context.WithValue(ctx, CtxOriginSystemIDKey(OriginSystemIDHeader), "originSystemID")
 	defer cancel()
 	err := publisher.SaveAndPublish(ctx, uuid, testHash, testAnnotations)
 	assert.EqualError(t, err, ErrServiceTimeout.Error())
