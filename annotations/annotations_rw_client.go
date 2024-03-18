@@ -10,8 +10,8 @@ import (
 	"strconv"
 
 	"github.com/Financial-Times/annotations-publisher/health"
+	"github.com/Financial-Times/go-logger/v2"
 	status "github.com/Financial-Times/service-status-go/httphandlers"
-	log "github.com/sirupsen/logrus"
 )
 
 const (
@@ -29,9 +29,10 @@ type genericRWClient struct {
 	client      *http.Client
 	rwEndpoint  string
 	gtgEndpoint string
+	logger      *logger.UPPLogger
 }
 
-func NewAnnotationsClient(endpoint string, client *http.Client) (AnnotationsClient, error) {
+func NewAnnotationsClient(endpoint string, client *http.Client, logger *logger.UPPLogger) (AnnotationsClient, error) {
 	v, err := url.Parse(fmt.Sprintf(endpoint, "dummy"))
 	if err != nil {
 		return nil, err
@@ -40,25 +41,25 @@ func NewAnnotationsClient(endpoint string, client *http.Client) (AnnotationsClie
 	gtg, _ := url.Parse(status.GTGPath)
 	gtgURL := v.ResolveReference(gtg)
 
-	return &genericRWClient{client: client, rwEndpoint: endpoint, gtgEndpoint: gtgURL.String()}, nil
+	return &genericRWClient{client: client, rwEndpoint: endpoint, gtgEndpoint: gtgURL.String(), logger: logger}, nil
 }
 
 func (rw *genericRWClient) GTG() error {
 	req, err := http.NewRequest("GET", rw.gtgEndpoint, nil)
 	if err != nil {
-		log.WithError(err).WithField("healthEndpoint", rw.gtgEndpoint).Error("Error in creating GTG request for generic-rw-aurora")
+		rw.logger.WithError(err).WithField("healthEndpoint", rw.gtgEndpoint).Error("Error in creating GTG request for generic-rw-aurora")
 		return err
 	}
 	resp, err := rw.client.Do(req)
 	if err != nil {
-		log.WithError(err).WithField("healthEndpoint", rw.gtgEndpoint).Error("Error in GTG request for generic-rw-aurora")
+		rw.logger.WithError(err).WithField("healthEndpoint", rw.gtgEndpoint).Error("Error in GTG request for generic-rw-aurora")
 		return err
 	}
 
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		log.WithField("healthEndpoint", rw.gtgEndpoint).
+		rw.logger.WithField("healthEndpoint", rw.gtgEndpoint).
 			WithField("status", resp.StatusCode).
 			Error("GTG for generic-rw-aurora returned a non-200 HTTP status")
 

@@ -10,15 +10,26 @@ import (
 	"github.com/Financial-Times/annotations-publisher/resources"
 	"github.com/Financial-Times/api-endpoint"
 	"github.com/Financial-Times/go-ft-http/fthttp"
+	"github.com/Financial-Times/go-logger/v2"
 	"github.com/Financial-Times/http-handlers-go/httphandlers"
 	status "github.com/Financial-Times/service-status-go/httphandlers"
 	"github.com/husobee/vestigo"
 	cli "github.com/jawher/mow.cli"
 	"github.com/rcrowley/go-metrics"
-	log "github.com/sirupsen/logrus"
 )
 
-const appDescription = "PAC Annotations Publisher"
+const (
+	appDescription = "PAC Annotations Publisher"
+)
+
+type jsonValidator interface {
+	Validate(interface{}) error
+}
+
+type schemaHandler interface {
+	ListSchemas(w http.ResponseWriter, r *http.Request)
+	GetSchema(w http.ResponseWriter, r *http.Request)
+}
 
 func main() {
 	app := cli.App("annotations-publisher", appDescription)
@@ -79,43 +90,65 @@ func main() {
 		EnvVar: "HTTP_CLIENT_TIMEOUT",
 	})
 
-	log.SetFormatter(&log.JSONFormatter{})
-	log.SetLevel(log.InfoLevel)
-	log.Infof("[Startup] %v is starting", *appSystemCode)
+	logLevel := app.String(cli.StringOpt{
+		Name:   "logLevel",
+		Value:  "INFO",
+		Desc:   "Logging level (DEBUG, INFO, WARN, ERROR)",
+		EnvVar: "LOG_LEVEL",
+	})
+
+	enableValidation := app.Bool(cli.BoolOpt{
+		Name:   "enableValidation",
+		Value:  true,
+		Desc:   "An option to allow or disallow validating annotations",
+		EnvVar: "ENABLE_VALIDATION",
+	})
+
+	logger := logger.NewUPPLogger(*appName, *logLevel)
+	logger.Infof("[Startup] %v is starting", *appSystemCode)
 
 	app.Action = func() {
-		log.Infof("System code: %s, App Name: %s, Port: %s", *appSystemCode, *appName, *port)
+		logger.Infof("System code: %s, App Name: %s, Port: %s", *appSystemCode, *appName, *port)
 		timeout, err := time.ParseDuration(*httpTimeout)
 		if err != nil {
-			log.WithError(err).Fatal("Provided http timeout is not in the standard duration format.")
+			logger.WithError(err).Fatal("Provided http timeout is not in the standard duration format.")
 		}
 
 		httpClient := fthttp.NewClient(timeout, "PAC", *appSystemCode)
 
-		draftAnnotationsRW, err := annotations.NewAnnotationsClient(*draftsEndpoint, httpClient)
+		draftAnnotationsRW, err := annotations.NewAnnotationsClient(*draftsEndpoint, httpClient, logger)
 		if err != nil {
-			log.WithError(err).Fatal("Failed to create new draft annotations writer.")
+			logger.WithError(err).Fatal("Failed to create new draft annotations writer.")
 		}
 
-		publisher := annotations.NewPublisher(draftAnnotationsRW, *annotationsEndpoint, *annotationsGTGEndpoint, httpClient)
+		//var sh schemaHandler
+		//var jv jsonValidator
+		//
+		if *enableValidation {
+			//	v := validator.NewSchemaValidator(logger)
+			//	sh = v.GetSchemaHandler()
+			//	jv = v.GetJSONValidator()
+		}
+
+		publisher := annotations.NewPublisher(draftAnnotationsRW, *annotationsEndpoint, *annotationsGTGEndpoint, httpClient, logger)
 		healthService := health.NewHealthService(*appSystemCode, *appName, appDescription, publisher, draftAnnotationsRW)
 
-		serveEndpoints(*port, apiYml, publisher, healthService, timeout)
+		serveEndpoints(*port, apiYml, publisher, healthService, timeout, logger)
 	}
 
 	err := app.Run(os.Args)
 	if err != nil {
-		log.Errorf("App could not start, error=[%s]\n", err)
+		logger.Errorf("App could not start, error=[%s]\n", err)
 		return
 	}
 }
 
-func serveEndpoints(port string, apiYml *string, publisher annotations.Publisher, healthService *health.HealthService, timeout time.Duration) {
+func serveEndpoints(port string, apiYml *string, publisher annotations.Publisher, healthService *health.HealthService, timeout time.Duration, logger *logger.UPPLogger) {
 	r := vestigo.NewRouter()
-	r.Post("/drafts/content/:uuid/annotations/publish", resources.Publish(publisher, timeout))
+	r.Post("/drafts/content/:uuid/annotations/publish", resources.Publish(publisher, timeout, logger))
 
 	var monitoringRouter http.Handler = r
-	monitoringRouter = httphandlers.TransactionAwareRequestLoggingHandler(log.StandardLogger(), monitoringRouter)
+	monitoringRouter = httphandlers.TransactionAwareRequestLoggingHandler(logger.Logger, monitoringRouter)
 	monitoringRouter = httphandlers.HTTPMetricsHandler(metrics.DefaultRegistry, monitoringRouter)
 
 	r.Get("/__health", healthService.HealthCheckHandleFunc())
@@ -127,13 +160,13 @@ func serveEndpoints(port string, apiYml *string, publisher annotations.Publisher
 	if apiYml != nil {
 		apiEndpoint, err := api.NewAPIEndpointForFile(*apiYml)
 		if err != nil {
-			log.WithError(err).WithField("file", *apiYml).Warn("Failed to serve the API Endpoint for this service. Please validate the Swagger YML and the file location")
+			logger.WithError(err).WithField("file", *apiYml).Warn("Failed to serve the API Endpoint for this service. Please validate the Swagger YML and the file location")
 		} else {
 			r.Get(api.DefaultPath, apiEndpoint.ServeHTTP)
 		}
 	}
 
 	if err := http.ListenAndServe(":"+port, nil); err != nil {
-		log.Fatalf("Unable to start: %v", err)
+		logger.Fatalf("Unable to start: %v", err)
 	}
 }

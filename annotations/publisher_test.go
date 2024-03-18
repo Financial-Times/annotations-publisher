@@ -57,7 +57,7 @@ func TestPublish(t *testing.T) {
 	defer server.Close()
 
 	draftAnnotationsClient := &mockAnnotationsClient{}
-	publisher := NewPublisher(draftAnnotationsClient, server.URL+"/notify", server.URL+"/__gtg", testingClient)
+	publisher := NewPublisher(draftAnnotationsClient, server.URL+"/notify", server.URL+"/__gtg", testingClient, testLog)
 
 	ctx := tid.TransactionAwareContext(context.Background(), "tid")
 	ctx = context.WithValue(ctx, CtxOriginSystemIDKey(OriginSystemIDHeader), "originSystemID")
@@ -69,7 +69,7 @@ func TestPublish(t *testing.T) {
 
 func TestPublishFailsToMarshalBodyToJSON(t *testing.T) {
 	draftAnnotationsClient := &mockAnnotationsClient{}
-	publisher := NewPublisher(draftAnnotationsClient, "/notify", "/__gtg", testingClient)
+	publisher := NewPublisher(draftAnnotationsClient, "/notify", "/__gtg", testingClient, testLog)
 
 	body := make(map[string]interface{})
 	body["dodgy!"] = func() {}
@@ -83,7 +83,7 @@ func TestPublishFailsToMarshalBodyToJSON(t *testing.T) {
 
 func TestPublishFailsInvalidURL(t *testing.T) {
 	draftAnnotationsClient := &mockAnnotationsClient{}
-	publisher := NewPublisher(draftAnnotationsClient, ":#", "/__gtg", testingClient)
+	publisher := NewPublisher(draftAnnotationsClient, ":#", "/__gtg", testingClient, testLog)
 
 	body := make(map[string]interface{})
 	ctx := tid.TransactionAwareContext(context.Background(), "tid")
@@ -96,7 +96,7 @@ func TestPublishFailsInvalidURL(t *testing.T) {
 
 func TestPublishRequestFailsServerUnavailable(t *testing.T) {
 	draftAnnotationsClient := &mockAnnotationsClient{}
-	publisher := NewPublisher(draftAnnotationsClient, "/publish", "/__gtg", testingClient)
+	publisher := NewPublisher(draftAnnotationsClient, "/publish", "/__gtg", testingClient, testLog)
 
 	body := make(map[string]interface{})
 	ctx := tid.TransactionAwareContext(context.Background(), "tid")
@@ -113,7 +113,7 @@ func TestPublishRequestUnsuccessful(t *testing.T) {
 	defer server.Close()
 
 	draftAnnotationsClient := &mockAnnotationsClient{}
-	publisher := NewPublisher(draftAnnotationsClient, server.URL+"/notify", server.URL+"/__gtg", testingClient)
+	publisher := NewPublisher(draftAnnotationsClient, server.URL+"/notify", server.URL+"/__gtg", testingClient, testLog)
 
 	body := make(map[string]interface{})
 	ctx := tid.TransactionAwareContext(context.Background(), "tid")
@@ -126,7 +126,7 @@ func TestPublishRequestUnsuccessful(t *testing.T) {
 
 func TestPublisherEndpoint(t *testing.T) {
 	draftAnnotationsClient := &mockAnnotationsClient{}
-	publisher := NewPublisher(draftAnnotationsClient, "/publish", "/__gtg", testingClient)
+	publisher := NewPublisher(draftAnnotationsClient, "/publish", "/__gtg", testingClient, testLog)
 	assert.Equal(t, "/publish", publisher.Endpoint())
 
 	draftAnnotationsClient.AssertExpectations(t)
@@ -138,7 +138,7 @@ func TestPublisherPublishToUppTimeout(t *testing.T) {
 	defer server.Close()
 
 	draftAnnotationsClient := &mockAnnotationsClient{}
-	publisher := NewPublisher(draftAnnotationsClient, server.URL+"/notify", server.URL+"/__gtg", testingClient)
+	publisher := NewPublisher(draftAnnotationsClient, server.URL+"/notify", server.URL+"/__gtg", testingClient, testLog)
 	ctx, cancel := context.WithTimeout(tid.TransactionAwareContext(context.Background(), "tid"), 10*time.Millisecond)
 	ctx = context.WithValue(ctx, CtxOriginSystemIDKey(OriginSystemIDHeader), "originSystemID")
 	defer cancel()
@@ -155,7 +155,7 @@ func TestPublisherGTG(t *testing.T) {
 	defer server.Close()
 
 	draftAnnotationsClient := &mockAnnotationsClient{}
-	publisher := NewPublisher(draftAnnotationsClient, "publishEndpoint", server.URL+"/__gtg", testingClient)
+	publisher := NewPublisher(draftAnnotationsClient, "publishEndpoint", server.URL+"/__gtg", testingClient, testLog)
 	err := publisher.GTG()
 	assert.NoError(t, err)
 }
@@ -165,21 +165,21 @@ func TestPublisherGTGFails(t *testing.T) {
 	defer server.Close()
 
 	draftAnnotationsClient := &mockAnnotationsClient{}
-	publisher := NewPublisher(draftAnnotationsClient, "publishEndpoint", server.URL+"/__gtg", testingClient)
+	publisher := NewPublisher(draftAnnotationsClient, "publishEndpoint", server.URL+"/__gtg", testingClient, testLog)
 	err := publisher.GTG()
 	assert.EqualError(t, err, fmt.Sprintf("GTG %v returned a %v status code for UPP cms-metadata-notifier service", server.URL+"/__gtg", http.StatusServiceUnavailable))
 }
 
 func TestPublisherGTGDoRequestFails(t *testing.T) {
 	draftAnnotationsClient := &mockAnnotationsClient{}
-	publisher := NewPublisher(draftAnnotationsClient, "publishEndpoint", "/__gtg", testingClient)
+	publisher := NewPublisher(draftAnnotationsClient, "publishEndpoint", "/__gtg", testingClient, testLog)
 	err := publisher.GTG()
 	assert.EqualError(t, err, "Get \"/__gtg\": unsupported protocol scheme \"\"")
 }
 
 func TestPublisherGTGInvalidURL(t *testing.T) {
 	draftAnnotationsClient := &mockAnnotationsClient{}
-	publisher := NewPublisher(draftAnnotationsClient, "publishEndpoint", ":#", testingClient)
+	publisher := NewPublisher(draftAnnotationsClient, "publishEndpoint", ":#", testingClient, testLog)
 	err := publisher.GTG()
 	assert.EqualError(t, err, "parse \":\": missing protocol scheme")
 }
@@ -201,7 +201,7 @@ func TestPublishFromStore(t *testing.T) {
 	server := startMockServer(ctx, t, uuid, true, true, time.Duration(0))
 	defer server.Close()
 
-	publisher := NewPublisher(draftAnnotationsClient, server.URL+"/notify", "http://www.example.com/__gtg", testingClient)
+	publisher := NewPublisher(draftAnnotationsClient, server.URL+"/notify", "http://www.example.com/__gtg", testingClient, testLog)
 
 	err := publisher.PublishFromStore(ctx, uuid)
 	assert.NoError(t, err)
@@ -214,7 +214,7 @@ func TestPublishFromStoreNotFound(t *testing.T) {
 
 	draftAnnotationsClient := &mockAnnotationsClient{}
 	draftAnnotationsClient.On("GetAnnotations", mock.Anything, uuid).Return(map[string]interface{}{}, "", ErrDraftNotFound)
-	publisher := NewPublisher(draftAnnotationsClient, "http://www.example.com/notify", "http://www.example.com/__gtg", testingClient)
+	publisher := NewPublisher(draftAnnotationsClient, "http://www.example.com/notify", "http://www.example.com/__gtg", testingClient, testLog)
 
 	ctx, cancel := context.WithTimeout(tid.TransactionAwareContext(context.Background(), "tid_test"), 50*time.Millisecond)
 	defer cancel()
@@ -229,7 +229,7 @@ func TestPublishFromStoreDraftAnnotationsGetTimeOut(t *testing.T) {
 
 	draftAnnotationsClient := &mockAnnotationsClient{}
 	draftAnnotationsClient.On("GetAnnotations", mock.Anything, uuid).Return(map[string]interface{}{}, "", testTimeoutError{errors.New("dealine exceeded")})
-	publisher := NewPublisher(draftAnnotationsClient, "http://www.example.com/notify", "http://www.example.com/__gtg", testingClient)
+	publisher := NewPublisher(draftAnnotationsClient, "http://www.example.com/notify", "http://www.example.com/__gtg", testingClient, testLog)
 
 	ctx, cancel := context.WithTimeout(tid.TransactionAwareContext(context.Background(), "tid_test"), 50*time.Millisecond)
 	defer cancel()
@@ -245,7 +245,7 @@ func TestPublishFromStoreGetDraftsFails(t *testing.T) {
 
 	draftAnnotationsClient := &mockAnnotationsClient{}
 	draftAnnotationsClient.On("GetAnnotations", mock.Anything, uuid).Return(map[string]interface{}{}, "", errors.New(msg))
-	publisher := NewPublisher(draftAnnotationsClient, "http://www.example.com/notify", "http://www.example.com/__gtg", testingClient)
+	publisher := NewPublisher(draftAnnotationsClient, "http://www.example.com/notify", "http://www.example.com/__gtg", testingClient, testLog)
 
 	ctx, cancel := context.WithTimeout(tid.TransactionAwareContext(context.Background(), "tid_test"), 50*time.Millisecond)
 	defer cancel()
@@ -270,7 +270,7 @@ func TestPublishFromStoreSaveDraftFails(t *testing.T) {
 	server := startMockServer(ctx, t, uuid, true, true, time.Duration(0))
 	defer server.Close()
 
-	publisher := NewPublisher(draftAnnotationsClient, server.URL+"/notify", "http://www.example.com/__gtg", testingClient)
+	publisher := NewPublisher(draftAnnotationsClient, server.URL+"/notify", "http://www.example.com/__gtg", testingClient, testLog)
 
 	err := publisher.PublishFromStore(ctx, uuid)
 	assert.EqualError(t, err, msg)
@@ -292,7 +292,7 @@ func TestPublishFromStoreSaveDraftTimeout(t *testing.T) {
 	server := startMockServer(ctx, t, uuid, true, true, time.Duration(0))
 	defer server.Close()
 
-	publisher := NewPublisher(draftAnnotationsClient, server.URL+"/notify", "http://www.example.com/__gtg", testingClient)
+	publisher := NewPublisher(draftAnnotationsClient, server.URL+"/notify", "http://www.example.com/__gtg", testingClient, testLog)
 
 	err := publisher.PublishFromStore(ctx, uuid)
 	assert.EqualError(t, err, ErrServiceTimeout.Error())
@@ -316,7 +316,7 @@ func TestPublishFromStoreSavePublishedFails(t *testing.T) {
 	server := startMockServer(ctx, t, uuid, true, true, time.Duration(0))
 	defer server.Close()
 
-	publisher := NewPublisher(draftAnnotationsClient, server.URL+"/notify", "http://www.example.com/__gtg", testingClient)
+	publisher := NewPublisher(draftAnnotationsClient, server.URL+"/notify", "http://www.example.com/__gtg", testingClient, testLog)
 
 	err := publisher.PublishFromStore(ctx, uuid)
 	assert.EqualError(t, err, msg)
@@ -339,7 +339,7 @@ func TestPublishFromStoreSavePublishedTimeout(t *testing.T) {
 	server := startMockServer(ctx, t, uuid, true, true, time.Duration(0))
 	defer server.Close()
 
-	publisher := NewPublisher(draftAnnotationsClient, server.URL+"/notify", "http://www.example.com/__gtg", testingClient)
+	publisher := NewPublisher(draftAnnotationsClient, server.URL+"/notify", "http://www.example.com/__gtg", testingClient, testLog)
 
 	err := publisher.PublishFromStore(ctx, uuid)
 	assert.EqualError(t, err, ErrServiceTimeout.Error())
@@ -361,7 +361,7 @@ func TestPublishFromStorePublishFails(t *testing.T) {
 	server := startMockServer(ctx, t, uuid, false, true, time.Duration(0))
 	defer server.Close()
 
-	publisher := NewPublisher(draftAnnotationsClient, server.URL+"/notify", "http://www.example.com/__gtg", testingClient)
+	publisher := NewPublisher(draftAnnotationsClient, server.URL+"/notify", "http://www.example.com/__gtg", testingClient, testLog)
 
 	err := publisher.PublishFromStore(ctx, uuid)
 	assert.EqualError(t, err, fmt.Sprintf("publish to %v/notify returned a 503 status code", server.URL))
@@ -387,7 +387,7 @@ func TestSaveAndPublish(t *testing.T) {
 	server := startMockServer(ctx, t, uuid, true, true, time.Duration(0))
 	defer server.Close()
 
-	publisher := NewPublisher(draftAnnotationsClient, server.URL+"/notify", "http://www.example.com/__gtg", testingClient)
+	publisher := NewPublisher(draftAnnotationsClient, server.URL+"/notify", "http://www.example.com/__gtg", testingClient, testLog)
 
 	err := publisher.SaveAndPublish(ctx, uuid, testHash, testAnnotations)
 	assert.NoError(t, err)
@@ -402,7 +402,7 @@ func TestSaveAndPublishNotFound(t *testing.T) {
 
 	draftAnnotationsClient := &mockAnnotationsClient{}
 	draftAnnotationsClient.On("SaveAnnotations", mock.Anything, uuid, testHash, testAnnotations).Return(map[string]interface{}{}, "", ErrDraftNotFound)
-	publisher := NewPublisher(draftAnnotationsClient, "http://www.example.com/notify", "http://www.example.com/__gtg", testingClient)
+	publisher := NewPublisher(draftAnnotationsClient, "http://www.example.com/notify", "http://www.example.com/__gtg", testingClient, testLog)
 
 	ctx, cancel := context.WithTimeout(tid.TransactionAwareContext(context.Background(), "tid_test"), 50*time.Millisecond)
 	ctx = context.WithValue(ctx, CtxOriginSystemIDKey(OriginSystemIDHeader), "originSystemID")
@@ -420,7 +420,7 @@ func TestSaveAndPublishDraftSaveAnnotationsTimeout(t *testing.T) {
 
 	draftAnnotationsClient := &mockAnnotationsClient{}
 	draftAnnotationsClient.On("SaveAnnotations", mock.Anything, uuid, testHash, testAnnotations).Return(map[string]interface{}{}, "", testTimeoutError{errors.New("dealine exceeded")})
-	publisher := NewPublisher(draftAnnotationsClient, "http://www.example.com/notify", "http://www.example.com/__gtg", testingClient)
+	publisher := NewPublisher(draftAnnotationsClient, "http://www.example.com/notify", "http://www.example.com/__gtg", testingClient, testLog)
 
 	ctx, cancel := context.WithTimeout(tid.TransactionAwareContext(context.Background(), "tid_test"), 50*time.Millisecond)
 	ctx = context.WithValue(ctx, CtxOriginSystemIDKey(OriginSystemIDHeader), "originSystemID")

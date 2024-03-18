@@ -3,6 +3,7 @@ package resources
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"io"
 	"net/http"
 	"strconv"
@@ -10,16 +11,16 @@ import (
 	"time"
 
 	"github.com/Financial-Times/annotations-publisher/annotations"
+	"github.com/Financial-Times/go-logger/v2"
 	tid "github.com/Financial-Times/transactionid-utils-go"
 	"github.com/husobee/vestigo"
 	log "github.com/sirupsen/logrus"
 )
 
 // Publish provides functionality to publish PAC annotations to UPP
-func Publish(publisher annotations.Publisher, httpTimeOut time.Duration) func(w http.ResponseWriter, r *http.Request) {
+func Publish(publisher annotations.Publisher, httpTimeOut time.Duration, logger *logger.UPPLogger) func(w http.ResponseWriter, r *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
 		txid := tid.GetTransactionIDFromRequest(r)
-		mlog := log.WithField(tid.TransactionIDKey, txid)
 		ctx, cancel := context.WithTimeout(tid.TransactionAwareContext(context.Background(), txid), httpTimeOut)
 		defer cancel()
 
@@ -38,11 +39,11 @@ func Publish(publisher annotations.Publisher, httpTimeOut time.Duration) func(w 
 
 		fromStore, _ := strconv.ParseBool(r.URL.Query().Get("fromStore"))
 		hash := r.Header.Get(annotations.PreviousDocumentHashHeader)
-		log.WithFields(log.Fields{"transaction_id": txid, "uuid": uuid, "fromStore": fromStore}).Info("publish")
+		logger.WithFields(log.Fields{"transaction_id": txid, "uuid": uuid, "fromStore": fromStore}).Info("publish")
 
 		bodyBytes, err := io.ReadAll(r.Body)
 		if err != nil {
-			mlog.WithField("reason", err).Warn("error reading body")
+			logger.WithTransactionID(txid).WithField("reason", err).Warn("error reading body")
 			writeMsg(w, http.StatusBadRequest, "Failed to read request body. Please provide a valid json request body")
 			return
 		}
@@ -56,55 +57,53 @@ func Publish(publisher annotations.Publisher, httpTimeOut time.Duration) func(w 
 			return
 		}
 		if fromStore {
-			publishFromStore(ctx, publisher, uuid, w)
+			publishFromStore(ctx, logger, publisher, uuid, w)
 			return
 		}
 
 		var body map[string]interface{}
 		err = json.Unmarshal(bodyBytes, &body)
 		if err != nil {
-			mlog.WithField("reason", err).Warn("failed to unmarshal publish body")
+			logger.WithTransactionID(txid).WithField("reason", err).Warn("failed to unmarshal publish body")
 			writeMsg(w, http.StatusBadRequest, "Failed to process request json. Please provide a valid json request body")
 			return
 		}
-		saveAndPublish(ctx, publisher, uuid, hash, w, body)
+		saveAndPublish(ctx, logger, publisher, uuid, hash, w, body)
 	}
 }
 
-func saveAndPublish(ctx context.Context, publisher annotations.Publisher, uuid string, hash string, w http.ResponseWriter, body map[string]interface{}) {
+func saveAndPublish(ctx context.Context, logger *logger.UPPLogger, publisher annotations.Publisher, uuid string, hash string, w http.ResponseWriter, body map[string]interface{}) {
 	txid, _ := tid.GetTransactionIDFromContext(ctx)
-	mlog := log.WithField(tid.TransactionIDKey, txid)
 
 	err := publisher.SaveAndPublish(ctx, uuid, hash, body)
-	if err == annotations.ErrServiceTimeout {
+	if errors.Is(err, annotations.ErrServiceTimeout) {
 		writeMsg(w, http.StatusGatewayTimeout, err.Error())
 		return
 	}
-	if err == annotations.ErrDraftNotFound {
+	if errors.Is(err, annotations.ErrDraftNotFound) {
 		writeMsg(w, http.StatusNotFound, err.Error())
 		return
 	}
 	if err != nil {
-		mlog.WithField("reason", err).Error("failed to publish annotations to UPP")
+		logger.WithTransactionID(txid).WithField("reason", err).Error("failed to publish annotations to UPP")
 		writeMsg(w, http.StatusServiceUnavailable, err.Error())
 		return
 	}
 	writeMsg(w, http.StatusAccepted, "Publish accepted")
 }
 
-func publishFromStore(ctx context.Context, publisher annotations.Publisher, uuid string, w http.ResponseWriter) {
+func publishFromStore(ctx context.Context, logger *logger.UPPLogger, publisher annotations.Publisher, uuid string, w http.ResponseWriter) {
 	txid, _ := tid.GetTransactionIDFromContext(ctx)
-	mlog := log.WithField(tid.TransactionIDKey, txid)
 
 	err := publisher.PublishFromStore(ctx, uuid)
 	if err == nil {
 		writeMsg(w, http.StatusAccepted, "Publish accepted")
-	} else if err == annotations.ErrServiceTimeout {
+	} else if errors.Is(err, annotations.ErrServiceTimeout) {
 		writeMsg(w, http.StatusGatewayTimeout, err.Error())
-	} else if err == annotations.ErrDraftNotFound {
+	} else if errors.Is(err, annotations.ErrDraftNotFound) {
 		writeMsg(w, http.StatusNotFound, err.Error())
 	} else {
-		mlog.WithError(err).Error("Unable to publish annotations from store")
+		logger.WithTransactionID(txid).WithError(err).Error("Unable to publish annotations from store")
 		writeMsg(w, http.StatusInternalServerError, "Unable to publish annotations from store")
 	}
 }

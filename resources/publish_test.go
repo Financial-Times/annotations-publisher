@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/Financial-Times/annotations-publisher/annotations"
+	"github.com/Financial-Times/go-logger/v2"
 	"github.com/husobee/vestigo"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
@@ -42,8 +43,9 @@ func TestPublish(t *testing.T) {
 	r := vestigo.NewRouter()
 	pub := &mockPublisher{}
 	pub.On("SaveAndPublish", mock.Anything, "a-valid-uuid", "hash", mock.Anything).Return(nil)
+	testLog := logger.NewUPPLogger("test", "debug")
 
-	r.Post("/drafts/content/:uuid/annotations/publish", Publish(pub, timeout))
+	r.Post("/drafts/content/:uuid/annotations/publish", Publish(pub, timeout, testLog))
 
 	w := httptest.NewRecorder()
 	req := httptest.NewRequest("POST", "/drafts/content/a-valid-uuid/annotations/publish", strings.NewReader(testPublishBody))
@@ -60,8 +62,9 @@ func TestPublish(t *testing.T) {
 func TestBodyNotJSON(t *testing.T) {
 	r := vestigo.NewRouter()
 	pub := &mockPublisher{}
+	testLog := logger.NewUPPLogger("test", "debug")
 
-	r.Post("/drafts/content/:uuid/annotations/publish", Publish(pub, timeout))
+	r.Post("/drafts/content/:uuid/annotations/publish", Publish(pub, timeout, testLog))
 
 	w := httptest.NewRecorder()
 	req := httptest.NewRequest("POST", "/drafts/content/a-valid-uuid/annotations/publish", strings.NewReader(`{\`))
@@ -81,8 +84,9 @@ func TestPublishNotFound(t *testing.T) {
 	r := vestigo.NewRouter()
 	pub := &mockPublisher{}
 	pub.On("SaveAndPublish", mock.Anything, "a-valid-uuid", "hash", mock.Anything).Return(annotations.ErrDraftNotFound)
+	testLog := logger.NewUPPLogger("test", "debug")
 
-	r.Post("/drafts/content/:uuid/annotations/publish", Publish(pub, timeout))
+	r.Post("/drafts/content/:uuid/annotations/publish", Publish(pub, timeout, testLog))
 
 	w := httptest.NewRecorder()
 	req := httptest.NewRequest("POST", "/drafts/content/a-valid-uuid/annotations/publish", strings.NewReader(testPublishBody))
@@ -103,8 +107,9 @@ func TestPublishTimedout(t *testing.T) {
 	r := vestigo.NewRouter()
 	pub := &mockPublisher{}
 	pub.On("SaveAndPublish", mock.Anything, "a-valid-uuid", "hash", mock.Anything).Return(annotations.ErrServiceTimeout)
+	testLog := logger.NewUPPLogger("test", "debug")
 
-	r.Post("/drafts/content/:uuid/annotations/publish", Publish(pub, timeout))
+	r.Post("/drafts/content/:uuid/annotations/publish", Publish(pub, timeout, testLog))
 
 	w := httptest.NewRecorder()
 	req := httptest.NewRequest("POST", "/drafts/content/a-valid-uuid/annotations/publish", strings.NewReader(testPublishBody))
@@ -124,8 +129,9 @@ func TestPublishTimedout(t *testing.T) {
 func TestPublishMissingBody(t *testing.T) {
 	r := vestigo.NewRouter()
 	pub := &mockPublisher{}
+	testLog := logger.NewUPPLogger("test", "debug")
 
-	r.Post("/drafts/content/:uuid/annotations/publish", Publish(pub, timeout))
+	r.Post("/drafts/content/:uuid/annotations/publish", Publish(pub, timeout, testLog))
 
 	w := httptest.NewRecorder()
 	req := httptest.NewRequest("POST", "/drafts/content/a-valid-uuid/annotations/publish", nil)
@@ -149,8 +155,9 @@ func (f *failingReader) Read(p []byte) (n int, err error) {
 func TestPublishBodyReadFail(t *testing.T) {
 	r := vestigo.NewRouter()
 	pub := &mockPublisher{}
+	testLog := logger.NewUPPLogger("test", "debug")
 
-	r.Post("/drafts/content/:uuid/annotations/publish", Publish(pub, timeout))
+	r.Post("/drafts/content/:uuid/annotations/publish", Publish(pub, timeout, testLog))
 
 	w := httptest.NewRecorder()
 	req := httptest.NewRequest("POST", "/drafts/content/a-valid-uuid/annotations/publish", &failingReader{err: errors.New("failed to read request body. Please provide a valid json request body")})
@@ -172,8 +179,9 @@ func TestPublishNoHashHeader(t *testing.T) {
 	r := vestigo.NewRouter()
 	pub := &mockPublisher{}
 	pub.On("SaveAndPublish", mock.Anything, "a-valid-uuid", "", mock.Anything).Return(nil)
+	testLog := logger.NewUPPLogger("test", "debug")
 
-	r.Post("/drafts/content/:uuid/annotations/publish", Publish(pub, timeout))
+	r.Post("/drafts/content/:uuid/annotations/publish", Publish(pub, timeout, testLog))
 
 	w := httptest.NewRecorder()
 	req := httptest.NewRequest("POST", "/drafts/content/a-valid-uuid/annotations/publish", strings.NewReader(testPublishBody))
@@ -189,8 +197,9 @@ func TestPublishNoHashHeader(t *testing.T) {
 func TestRequestHasNoUUID(t *testing.T) {
 	r := vestigo.NewRouter()
 	pub := &mockPublisher{}
+	testLog := logger.NewUPPLogger("test", "debug")
 
-	r.Post("/drafts/content/:uuid/annotations/publish", Publish(pub, timeout))
+	r.Post("/drafts/content/:uuid/annotations/publish", Publish(pub, timeout, testLog))
 
 	w := httptest.NewRecorder()
 	req := httptest.NewRequest("POST", "/drafts/content//annotations/publish", strings.NewReader(`{}`))
@@ -210,8 +219,9 @@ func TestPublishFailed(t *testing.T) {
 	r := vestigo.NewRouter()
 	pub := &mockPublisher{}
 	pub.On("SaveAndPublish", mock.Anything, "a-valid-uuid", "hash", mock.Anything).Return(errors.New("eek"))
+	testLog := logger.NewUPPLogger("test", "debug")
 
-	r.Post("/drafts/content/:uuid/annotations/publish", Publish(pub, timeout))
+	r.Post("/drafts/content/:uuid/annotations/publish", Publish(pub, timeout, testLog))
 
 	w := httptest.NewRecorder()
 	req := httptest.NewRequest("POST", "/drafts/content/a-valid-uuid/annotations/publish", strings.NewReader(testPublishBody))
@@ -231,8 +241,9 @@ func TestPublishFailed(t *testing.T) {
 func TestPublishFromStore(t *testing.T) {
 	r := vestigo.NewRouter()
 	pub := &mockPublisher{}
+	testLog := logger.NewUPPLogger("test", "debug")
 	pub.On("PublishFromStore", mock.Anything, "a-valid-uuid").Return(nil)
-	r.Post("/drafts/content/:uuid/annotations/publish", Publish(pub, timeout))
+	r.Post("/drafts/content/:uuid/annotations/publish", Publish(pub, timeout, testLog))
 
 	w := httptest.NewRecorder()
 	req := httptest.NewRequest("POST", "/drafts/content/a-valid-uuid/annotations/publish?fromStore=true", nil)
@@ -252,7 +263,9 @@ func TestPublishFromStoreNotFound(t *testing.T) {
 	r := vestigo.NewRouter()
 	pub := &mockPublisher{}
 	pub.On("PublishFromStore", mock.Anything, "a-valid-uuid").Return(annotations.ErrDraftNotFound)
-	r.Post("/drafts/content/:uuid/annotations/publish", Publish(pub, timeout))
+	testLog := logger.NewUPPLogger("test", "debug")
+
+	r.Post("/drafts/content/:uuid/annotations/publish", Publish(pub, timeout, testLog))
 
 	w := httptest.NewRecorder()
 	req := httptest.NewRequest("POST", "/drafts/content/a-valid-uuid/annotations/publish?fromStore=true", nil)
@@ -272,7 +285,9 @@ func TestPublishFromStoreTimeout(t *testing.T) {
 	r := vestigo.NewRouter()
 	pub := &mockPublisher{}
 	pub.On("PublishFromStore", mock.Anything, "a-valid-uuid").Return(annotations.ErrServiceTimeout)
-	r.Post("/drafts/content/:uuid/annotations/publish", Publish(pub, timeout))
+	testLog := logger.NewUPPLogger("test", "debug")
+
+	r.Post("/drafts/content/:uuid/annotations/publish", Publish(pub, timeout, testLog))
 
 	w := httptest.NewRecorder()
 	req := httptest.NewRequest("POST", "/drafts/content/a-valid-uuid/annotations/publish?fromStore=true", nil)
@@ -291,8 +306,9 @@ func TestPublishFromStoreTimeout(t *testing.T) {
 func TestPublishFromStoreTrueWithBody(t *testing.T) {
 	r := vestigo.NewRouter()
 	pub := &mockPublisher{}
+	testLog := logger.NewUPPLogger("test", "debug")
 
-	r.Post("/drafts/content/:uuid/annotations/publish", Publish(pub, timeout))
+	r.Post("/drafts/content/:uuid/annotations/publish", Publish(pub, timeout, testLog))
 
 	w := httptest.NewRecorder()
 	req := httptest.NewRequest("POST", "/drafts/content/a-valid-uuid/annotations/publish?fromStore=true", strings.NewReader(testPublishBody))
@@ -313,7 +329,9 @@ func TestPublishFromStoreFails(t *testing.T) {
 	r := vestigo.NewRouter()
 	pub := &mockPublisher{}
 	pub.On("PublishFromStore", mock.Anything, "a-valid-uuid").Return(errors.New("test error"))
-	r.Post("/drafts/content/:uuid/annotations/publish", Publish(pub, timeout))
+	testLog := logger.NewUPPLogger("test", "debug")
+
+	r.Post("/drafts/content/:uuid/annotations/publish", Publish(pub, timeout, testLog))
 
 	w := httptest.NewRecorder()
 	req := httptest.NewRequest("POST", "/drafts/content/a-valid-uuid/annotations/publish?fromStore=true", nil)
