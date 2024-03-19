@@ -14,3 +14,5 @@ env:
   annotationsPublishGTGEndpoint: "http://cms-metadata-notifier:8080/__gtg"
   draftAnnotationsEndpoint: "http://draft-annotations-api:8080/drafts/content/%v/annotations"
   httpClientTimeout: "8s"
+  jsonSchemasPath: "/schemas"
+  jsonSchemaName: "annotations-pac.json;annotations-sv.json;annotations-draft.json"

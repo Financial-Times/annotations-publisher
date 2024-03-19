@@ -17,8 +17,12 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
+type JsonValidator interface {
+	Validate(interface{}) error
+}
+
 // Publish provides functionality to publish PAC annotations to UPP
-func Publish(publisher annotations.Publisher, httpTimeOut time.Duration, logger *logger.UPPLogger) func(w http.ResponseWriter, r *http.Request) {
+func Publish(publisher annotations.Publisher, jv JsonValidator, httpTimeOut time.Duration, logger *logger.UPPLogger) func(w http.ResponseWriter, r *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
 		txid := tid.GetTransactionIDFromRequest(r)
 		ctx, cancel := context.WithTimeout(tid.TransactionAwareContext(context.Background(), txid), httpTimeOut)
@@ -66,6 +70,13 @@ func Publish(publisher annotations.Publisher, httpTimeOut time.Duration, logger 
 		if err != nil {
 			logger.WithTransactionID(txid).WithField("reason", err).Warn("failed to unmarshal publish body")
 			writeMsg(w, http.StatusBadRequest, "Failed to process request json. Please provide a valid json request body")
+			return
+		}
+
+		err = jv.Validate(body)
+		if err != nil {
+			logger.WithTransactionID(txid).WithField("reason", err).Warn("failed to validate schema")
+			writeMsg(w, http.StatusBadRequest, "Failed to validate json schema. Please provide a valid json request body")
 			return
 		}
 		saveAndPublish(ctx, logger, publisher, uuid, hash, w, body)

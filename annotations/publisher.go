@@ -44,7 +44,13 @@ func NewPublisher(draftAnnotationsClient AnnotationsClient, publishEndpoint stri
 	logger.WithField("endpoint", draftAnnotationsClient.Endpoint()).Info("draft annotations r/w endpoint")
 	logger.WithField("endpoint", publishEndpoint).Info("publish endpoint")
 
-	return &uppPublisher{client: client, draftAnnotationsClient: draftAnnotationsClient, publishEndpoint: publishEndpoint, gtgEndpoint: gtgEndpoint, logger: logger}
+	return &uppPublisher{
+		client:                 client,
+		draftAnnotationsClient: draftAnnotationsClient,
+		publishEndpoint:        publishEndpoint,
+		gtgEndpoint:            gtgEndpoint,
+		logger:                 logger,
+	}
 }
 
 // Publish sends the annotations to UPP via the configured publishEndpoint. Requests contain X-Origin-System-Id and X-Request-Id and a User-Agent as provided.

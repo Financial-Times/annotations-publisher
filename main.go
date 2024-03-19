@@ -9,8 +9,9 @@ import (
 	"github.com/Financial-Times/annotations-publisher/health"
 	"github.com/Financial-Times/annotations-publisher/resources"
 	"github.com/Financial-Times/api-endpoint"
+	"github.com/Financial-Times/cm-annotations-ontology/validator"
 	"github.com/Financial-Times/go-ft-http/fthttp"
-	"github.com/Financial-Times/go-logger/v2"
+	l "github.com/Financial-Times/go-logger/v2"
 	"github.com/Financial-Times/http-handlers-go/httphandlers"
 	status "github.com/Financial-Times/service-status-go/httphandlers"
 	"github.com/husobee/vestigo"
@@ -21,15 +22,6 @@ import (
 const (
 	appDescription = "PAC Annotations Publisher"
 )
-
-type jsonValidator interface {
-	Validate(interface{}) error
-}
-
-type schemaHandler interface {
-	ListSchemas(w http.ResponseWriter, r *http.Request)
-	GetSchema(w http.ResponseWriter, r *http.Request)
-}
 
 func main() {
 	app := cli.App("annotations-publisher", appDescription)
@@ -91,20 +83,13 @@ func main() {
 	})
 
 	logLevel := app.String(cli.StringOpt{
-		Name:   "logLevel",
+		Name:   "log-Level",
 		Value:  "INFO",
 		Desc:   "Logging level (DEBUG, INFO, WARN, ERROR)",
 		EnvVar: "LOG_LEVEL",
 	})
 
-	enableValidation := app.Bool(cli.BoolOpt{
-		Name:   "enableValidation",
-		Value:  true,
-		Desc:   "An option to allow or disallow validating annotations",
-		EnvVar: "ENABLE_VALIDATION",
-	})
-
-	logger := logger.NewUPPLogger(*appName, *logLevel)
+	logger := l.NewUPPLogger(*appName, *logLevel)
 	logger.Infof("[Startup] %v is starting", *appSystemCode)
 
 	app.Action = func() {
@@ -121,19 +106,17 @@ func main() {
 			logger.WithError(err).Fatal("Failed to create new draft annotations writer.")
 		}
 
-		//var sh schemaHandler
-		//var jv jsonValidator
-		//
-		if *enableValidation {
-			//	v := validator.NewSchemaValidator(logger)
-			//	sh = v.GetSchemaHandler()
-			//	jv = v.GetJSONValidator()
-		}
+		//just for local test, on dev this will be set in the kube deployment
+		//os.Setenv("JSON_SCHEMAS_PATH", "./schemas")
+		//os.Setenv("JSON_SCHEMA_NAME", "annotations-pac.json;annotations-sv.json;annotations-draft.json")
+
+		v := validator.NewSchemaValidator(logger)
+		jv := v.GetJSONValidator()
 
 		publisher := annotations.NewPublisher(draftAnnotationsRW, *annotationsEndpoint, *annotationsGTGEndpoint, httpClient, logger)
 		healthService := health.NewHealthService(*appSystemCode, *appName, appDescription, publisher, draftAnnotationsRW)
 
-		serveEndpoints(*port, apiYml, publisher, healthService, timeout, logger)
+		serveEndpoints(*port, apiYml, publisher, jv, healthService, timeout, logger)
 	}
 
 	err := app.Run(os.Args)
@@ -143,9 +126,9 @@ func main() {
 	}
 }
 
-func serveEndpoints(port string, apiYml *string, publisher annotations.Publisher, healthService *health.HealthService, timeout time.Duration, logger *logger.UPPLogger) {
+func serveEndpoints(port string, apiYml *string, publisher annotations.Publisher, jv resources.JsonValidator, healthService *health.HealthService, timeout time.Duration, logger *l.UPPLogger) {
 	r := vestigo.NewRouter()
-	r.Post("/drafts/content/:uuid/annotations/publish", resources.Publish(publisher, timeout, logger))
+	r.Post("/drafts/content/:uuid/annotations/publish", resources.Publish(publisher, jv, timeout, logger))
 
 	var monitoringRouter http.Handler = r
 	monitoringRouter = httphandlers.TransactionAwareRequestLoggingHandler(logger.Logger, monitoringRouter)
