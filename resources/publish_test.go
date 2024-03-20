@@ -39,6 +39,23 @@ const testPublishBody = `
     ]
 }`
 
+const testInvalidPublishBody = `
+{
+	"annotations":[
+		{
+			"predicate": "http://www.ft.com/ontology/annotation/about",
+			"id": "http://www.ft.com/thing/0a619d71-9af5-3755-90dd-f789b686c67a"
+		},
+		{
+			"predicate": "http://www.ft.com/ontology/annotation/hasAuthor",
+			"id": "http://www.ft.com/thing/838b3fbe-efbc-3cfe-b5c0-d38c046492a4"
+		}
+	],
+    "publication": [
+        "8e6c705e-1132-42a2-8db0-c295e29e8658"
+    ]
+}`
+
 type failingReader struct {
 	err error
 }
@@ -71,6 +88,33 @@ func TestPublish(t *testing.T) {
 	pub.AssertExpectations(t)
 }
 
+func TestPublishInvalidSchema(t *testing.T) {
+	r := vestigo.NewRouter()
+	pub := &mockPublisher{}
+	testLog := logger.NewUPPLogger("test", "debug")
+
+	os.Setenv("JSON_SCHEMAS_PATH", "../schemas")
+	os.Setenv("JSON_SCHEMA_NAME", "annotations-pac.json;annotations-sv.json;annotations-draft.json")
+
+	v := validator.NewSchemaValidator(testLog)
+	jv := v.GetJSONValidator()
+
+	r.Post("/drafts/content/:uuid/annotations/publish", Publish(pub, jv, timeout, testLog))
+
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest("POST", "/drafts/content/a-valid-uuid/annotations/publish", strings.NewReader(testInvalidPublishBody))
+	req.Header.Add(annotations.PreviousDocumentHashHeader, "hash")
+	req.Header.Add(annotations.OriginSystemIDHeader, "originSystemId")
+
+	r.ServeHTTP(w, req)
+	resp, err := marshal(w.Body)
+	require.NoError(t, err)
+
+	assert.Equal(t, http.StatusBadRequest, w.Code)
+	assert.Equal(t, "Failed to validate json schema. Please provide a valid json request body", resp["message"])
+
+	pub.AssertExpectations(t)
+}
 func TestBodyNotJSON(t *testing.T) {
 	r := vestigo.NewRouter()
 	pub := &mockPublisher{}
