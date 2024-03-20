@@ -105,11 +105,7 @@ func main() {
 		if err != nil {
 			logger.WithError(err).Fatal("Failed to create new draft annotations writer.")
 		}
-
-		//just for local test, on dev this will be set in the kube deployment
-		//os.Setenv("JSON_SCHEMAS_PATH", "./schemas")
-		//os.Setenv("JSON_SCHEMA_NAME", "annotations-pac.json;annotations-sv.json;annotations-draft.json")
-
+		
 		v := validator.NewSchemaValidator(logger)
 		jv := v.GetJSONValidator()
 

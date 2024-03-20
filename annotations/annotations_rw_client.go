@@ -85,6 +85,7 @@ func (rw *genericRWClient) GetAnnotations(ctx context.Context, uuid string) (map
 	q.Add("sendHasBrand", strconv.FormatBool(true))
 	req.URL.RawQuery = q.Encode()
 
+	req.Header.Set("X-Origin-System-Id", ctx.Value(CtxOriginSystemIDKey(OriginSystemIDHeader)).(string))
 	req.Header.Set("Accept", "application/json")
 
 	resp, err := rw.client.Do(req.WithContext(ctx))
@@ -120,6 +121,7 @@ func (rw *genericRWClient) SaveAnnotations(ctx context.Context, uuid string, has
 		return map[string]interface{}{}, "", err
 	}
 
+	req.Header.Set("X-Origin-System-Id", ctx.Value(CtxOriginSystemIDKey(OriginSystemIDHeader)).(string))
 	req.Header.Set(PreviousDocumentHashHeader, hash)
 	req.Header.Set("Accept", "application/json")
 
