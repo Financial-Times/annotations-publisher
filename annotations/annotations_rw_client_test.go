@@ -98,7 +98,7 @@ func mockGetAnnotations(t *testing.T, expectedTid string, annotations map[string
 func TestGetAnnotations(t *testing.T) {
 	ctx := context.Background()
 	ctx = context.WithValue(ctx, CtxOriginSystemIDKey(OriginSystemIDHeader), "test-origin-system-id")
-	testTid := "tid_test"
+	testTid := "tid_test1"
 	testCtx := tid.TransactionAwareContext(ctx, testTid)
 	testUUID := uuid.New()
 	expectedAnnotations := map[string]interface{}{"annotations": map[string]interface{}{"predicate": "foo", "id": "bar"}}
@@ -219,7 +219,7 @@ func mockSaveAnnotations(t *testing.T, expectedTid string, expectedUUID string, 
 func TestSaveAnnotations(t *testing.T) {
 	ctx := context.Background()
 	ctx = context.WithValue(ctx, CtxOriginSystemIDKey(OriginSystemIDHeader), "test-origin-system-id")
-	testTid := "tid_test"
+	testTid := "tid_test2"
 	testCtx := tid.TransactionAwareContext(ctx, testTid)
 	testUUID := uuid.New()
 	testAnnotations := map[string]interface{}{"annotations": map[string]interface{}{"predicate": "foo", "id": "bar"}}
