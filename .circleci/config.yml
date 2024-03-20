@@ -12,10 +12,10 @@ workflows:
             - cm-team-github
       - ft-golang-ci/docker-build:
           name: build-docker-image
-          context:
-            - cm-team-github
           requires:
             - build-and-test-project
+          context:
+            - cm-team-github
   snyk-scanning:
     jobs:
       - ft-golang-ci/scan:
