@@ -22,7 +22,7 @@ const (
 
 var ErrMissingOriginHeader = errors.New("X-Origin-System-Id header not found in context")
 
-type AnnotationsClient interface {
+type Client interface {
 	health.ExternalService
 	GetAnnotations(ctx context.Context, uuid string) (map[string]interface{}, string, error)
 	SaveAnnotations(ctx context.Context, uuid string, hash string, data map[string]interface{}) (map[string]interface{}, string, error)
@@ -35,7 +35,7 @@ type genericRWClient struct {
 	logger      *logger.UPPLogger
 }
 
-func NewAnnotationsClient(endpoint string, client *http.Client, logger *logger.UPPLogger) (AnnotationsClient, error) {
+func NewAnnotationsClient(endpoint string, client *http.Client, logger *logger.UPPLogger) (Client, error) {
 	v, err := url.Parse(fmt.Sprintf(endpoint, "dummy"))
 	if err != nil {
 		return nil, err

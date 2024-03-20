@@ -83,14 +83,14 @@ func mockGetAnnotations(t *testing.T, expectedTid string, annotations map[string
 		if responseStatus != http.StatusOK {
 			w.WriteHeader(responseStatus)
 			msg := map[string]string{"message": "whatever"}
-			json.NewEncoder(w).Encode(&msg)
+			_ = json.NewEncoder(w).Encode(&msg)
 		} else if found {
 			w.WriteHeader(http.StatusOK)
-			json.NewEncoder(w).Encode(&response)
+			_ = json.NewEncoder(w).Encode(&response)
 		} else {
 			w.WriteHeader(http.StatusNotFound)
 			msg := map[string]string{"message": "not found"}
-			json.NewEncoder(w).Encode(&msg)
+			_ = json.NewEncoder(w).Encode(&msg)
 		}
 	}
 }
@@ -195,7 +195,7 @@ func mockSaveAnnotations(t *testing.T, expectedTid string, expectedUUID string, 
 			log.Error(err)
 			w.WriteHeader(http.StatusBadRequest)
 			msg := map[string]string{"message": "failed to deserialize body: " + err.Error()}
-			json.NewEncoder(w).Encode(&msg)
+			_ = json.NewEncoder(w).Encode(&msg)
 			return
 		}
 
@@ -206,12 +206,12 @@ func mockSaveAnnotations(t *testing.T, expectedTid string, expectedUUID string, 
 			w.Header().Add(DocumentHashHeader, updatedDocumentHash)
 			w.WriteHeader(expectedResponse)
 			if respondWithBody {
-				json.NewEncoder(w).Encode(&body)
+				_ = json.NewEncoder(w).Encode(&body)
 			}
 		default:
 			w.WriteHeader(http.StatusInternalServerError)
 			msg := map[string]string{"message": "test error"}
-			json.NewEncoder(w).Encode(&msg)
+			_ = json.NewEncoder(w).Encode(&msg)
 		}
 	}
 }

@@ -229,6 +229,7 @@ func TestPublishMissingBody(t *testing.T) {
 }
 
 func (f *failingReader) Read(p []byte) (n int, err error) {
+	_ = p
 	return 0, f.err
 }
 
@@ -521,6 +522,7 @@ func (m *mockPublisher) GetDraft(ctx context.Context, uuid string) (interface{},
 }
 
 func (m *mockPublisher) SaveDraft(ctx context.Context, uuid string, data interface{}) (interface{}, error) {
+	_ = data
 	args := m.Called(ctx, uuid)
 	return args.Get(0), args.Error(1)
 }

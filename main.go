@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"net/http"
 	"os"
 	"time"
@@ -105,7 +106,9 @@ func main() {
 		if err != nil {
 			logger.WithError(err).Fatal("Failed to create new draft annotations writer.")
 		}
-		
+		os.Setenv("JSON_SCHEMAS_PATH", "./schemas")
+		os.Setenv("JSON_SCHEMA_NAME", "annotations-pac.json;annotations-sv.json;annotations-draft.json")
+
 		v := validator.NewSchemaValidator(logger)
 		jv := v.GetJSONValidator()
 
@@ -122,7 +125,7 @@ func main() {
 	}
 }
 
-func serveEndpoints(port string, apiYml *string, publisher annotations.Publisher, jv resources.JsonValidator, healthService *health.HealthService, timeout time.Duration, logger *l.UPPLogger) {
+func serveEndpoints(port string, apiYml *string, publisher annotations.Publisher, jv resources.JSONValidator, healthService *health.Service, timeout time.Duration, logger *l.UPPLogger) {
 	r := vestigo.NewRouter()
 	r.Post("/drafts/content/:uuid/annotations/publish", resources.Publish(publisher, jv, timeout, logger))
 
@@ -145,7 +148,12 @@ func serveEndpoints(port string, apiYml *string, publisher annotations.Publisher
 		}
 	}
 
-	if err := http.ListenAndServe(":"+port, nil); err != nil {
+	server := &http.Server{
+		Addr:              fmt.Sprintf(":%s", port),
+		ReadHeaderTimeout: 8 * time.Second,
+	}
+
+	if err := server.ListenAndServe(); err != nil {
 		logger.Fatalf("Unable to start: %v", err)
 	}
 }

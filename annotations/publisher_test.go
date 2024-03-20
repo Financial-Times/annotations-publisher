@@ -486,6 +486,7 @@ func startMockServer(ctx context.Context, t *testing.T, uuid string, publishOk b
 func TestIsTimeoutErr(t *testing.T) {
 	r := vestigo.NewRouter()
 	r.Get("/", func(w http.ResponseWriter, r *http.Request) {
+		_, _ = w, r
 		time.Sleep(500 * time.Millisecond)
 	})
 	s := httptest.NewServer(r)
@@ -493,6 +494,9 @@ func TestIsTimeoutErr(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 50*time.Millisecond)
 	defer cancel()
 
-	_, err := http.DefaultClient.Do(req.WithContext(ctx))
+	resp, err := http.DefaultClient.Do(req.WithContext(ctx))
 	assert.True(t, isTimeoutErr(err))
+	if resp != nil {
+		_ = resp.Body.Close()
+	}
 }

@@ -17,12 +17,12 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
-type JsonValidator interface {
+type JSONValidator interface {
 	Validate(interface{}) error
 }
 
 // Publish provides functionality to publish PAC annotations to UPP
-func Publish(publisher annotations.Publisher, jv JsonValidator, httpTimeOut time.Duration, logger *logger.UPPLogger) func(w http.ResponseWriter, r *http.Request) {
+func Publish(publisher annotations.Publisher, jv JSONValidator, httpTimeOut time.Duration, logger *logger.UPPLogger) func(w http.ResponseWriter, r *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
 		txid := tid.GetTransactionIDFromRequest(r)
 		ctx, cancel := context.WithTimeout(tid.TransactionAwareContext(context.Background(), txid), httpTimeOut)
@@ -127,5 +127,5 @@ func writeMsg(w http.ResponseWriter, status int, msg string) {
 	resp["message"] = strings.ToUpper(msg[:1]) + msg[1:]
 
 	enc := json.NewEncoder(w)
-	enc.Encode(&resp)
+	_ = enc.Encode(&resp)
 }

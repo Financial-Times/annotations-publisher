@@ -33,14 +33,14 @@ type Publisher interface {
 
 type uppPublisher struct {
 	client                 *http.Client
-	draftAnnotationsClient AnnotationsClient
+	draftAnnotationsClient Client
 	publishEndpoint        string
 	gtgEndpoint            string
 	logger                 *logger.UPPLogger
 }
 
 // NewPublisher returns a new Publisher instance
-func NewPublisher(draftAnnotationsClient AnnotationsClient, publishEndpoint string, gtgEndpoint string, client *http.Client, logger *logger.UPPLogger) Publisher {
+func NewPublisher(draftAnnotationsClient Client, publishEndpoint string, gtgEndpoint string, client *http.Client, logger *logger.UPPLogger) Publisher {
 	logger.WithField("endpoint", draftAnnotationsClient.Endpoint()).Info("draft annotations r/w endpoint")
 	logger.WithField("endpoint", publishEndpoint).Info("publish endpoint")
 
@@ -129,7 +129,7 @@ func (a *uppPublisher) PublishFromStore(ctx context.Context, uuid string) error 
 	var err error
 
 	if draft, hash, err = a.draftAnnotationsClient.GetAnnotations(ctx, uuid); err == nil {
-		published, hash, err = a.draftAnnotationsClient.SaveAnnotations(ctx, uuid, hash, draft)
+		published, _, err = a.draftAnnotationsClient.SaveAnnotations(ctx, uuid, hash, draft)
 	}
 
 	if err != nil {
