@@ -7,11 +7,13 @@ import (
 	"errors"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"strings"
 	"testing"
 	"time"
 
 	"github.com/Financial-Times/annotations-publisher/annotations"
+	"github.com/Financial-Times/cm-annotations-ontology/validator"
 	"github.com/Financial-Times/go-logger/v2"
 	"github.com/husobee/vestigo"
 	"github.com/stretchr/testify/assert"
@@ -23,14 +25,18 @@ const testPublishBody = `
 {
 	"annotations":[
 		{
-			"predicate": "http://www.ft.com/ontology/annotation/mentions",
+			"predicate": "http://www.ft.com/ontology/annotation/about",
 			"id": "http://www.ft.com/thing/0a619d71-9af5-3755-90dd-f789b686c67a"
 		},
 		{
 			"predicate": "http://www.ft.com/ontology/annotation/hasAuthor",
 			"id": "http://www.ft.com/thing/838b3fbe-efbc-3cfe-b5c0-d38c046492a4"
 		}
-	]
+	],
+	"uuid": "8b956373-1129-4e37-95b0-7bfc914ded70",
+    "publication": [
+        "8e6c705e-1132-42a2-8db0-c295e29e8658"
+    ]
 }`
 
 type failingReader struct {
@@ -45,7 +51,13 @@ func TestPublish(t *testing.T) {
 	pub.On("SaveAndPublish", mock.Anything, "a-valid-uuid", "hash", mock.Anything).Return(nil)
 	testLog := logger.NewUPPLogger("test", "debug")
 
-	r.Post("/drafts/content/:uuid/annotations/publish", Publish(pub, timeout, testLog))
+	os.Setenv("JSON_SCHEMAS_PATH", "../schemas")
+	os.Setenv("JSON_SCHEMA_NAME", "annotations-pac.json;annotations-sv.json;annotations-draft.json")
+
+	v := validator.NewSchemaValidator(testLog)
+	jv := v.GetJSONValidator()
+
+	r.Post("/drafts/content/:uuid/annotations/publish", Publish(pub, jv, timeout, testLog))
 
 	w := httptest.NewRecorder()
 	req := httptest.NewRequest("POST", "/drafts/content/a-valid-uuid/annotations/publish", strings.NewReader(testPublishBody))
@@ -64,7 +76,13 @@ func TestBodyNotJSON(t *testing.T) {
 	pub := &mockPublisher{}
 	testLog := logger.NewUPPLogger("test", "debug")
 
-	r.Post("/drafts/content/:uuid/annotations/publish", Publish(pub, timeout, testLog))
+	os.Setenv("JSON_SCHEMAS_PATH", "../schemas")
+	os.Setenv("JSON_SCHEMA_NAME", "annotations-pac.json;annotations-sv.json;annotations-draft.json")
+
+	v := validator.NewSchemaValidator(testLog)
+	jv := v.GetJSONValidator()
+
+	r.Post("/drafts/content/:uuid/annotations/publish", Publish(pub, jv, timeout, testLog))
 
 	w := httptest.NewRecorder()
 	req := httptest.NewRequest("POST", "/drafts/content/a-valid-uuid/annotations/publish", strings.NewReader(`{\`))
@@ -86,7 +104,13 @@ func TestPublishNotFound(t *testing.T) {
 	pub.On("SaveAndPublish", mock.Anything, "a-valid-uuid", "hash", mock.Anything).Return(annotations.ErrDraftNotFound)
 	testLog := logger.NewUPPLogger("test", "debug")
 
-	r.Post("/drafts/content/:uuid/annotations/publish", Publish(pub, timeout, testLog))
+	os.Setenv("JSON_SCHEMAS_PATH", "../schemas")
+	os.Setenv("JSON_SCHEMA_NAME", "annotations-pac.json;annotations-sv.json;annotations-draft.json")
+
+	v := validator.NewSchemaValidator(testLog)
+	jv := v.GetJSONValidator()
+
+	r.Post("/drafts/content/:uuid/annotations/publish", Publish(pub, jv, timeout, testLog))
 
 	w := httptest.NewRecorder()
 	req := httptest.NewRequest("POST", "/drafts/content/a-valid-uuid/annotations/publish", strings.NewReader(testPublishBody))
@@ -109,7 +133,13 @@ func TestPublishTimedout(t *testing.T) {
 	pub.On("SaveAndPublish", mock.Anything, "a-valid-uuid", "hash", mock.Anything).Return(annotations.ErrServiceTimeout)
 	testLog := logger.NewUPPLogger("test", "debug")
 
-	r.Post("/drafts/content/:uuid/annotations/publish", Publish(pub, timeout, testLog))
+	os.Setenv("JSON_SCHEMAS_PATH", "../schemas")
+	os.Setenv("JSON_SCHEMA_NAME", "annotations-pac.json;annotations-sv.json;annotations-draft.json")
+
+	v := validator.NewSchemaValidator(testLog)
+	jv := v.GetJSONValidator()
+
+	r.Post("/drafts/content/:uuid/annotations/publish", Publish(pub, jv, timeout, testLog))
 
 	w := httptest.NewRecorder()
 	req := httptest.NewRequest("POST", "/drafts/content/a-valid-uuid/annotations/publish", strings.NewReader(testPublishBody))
@@ -131,7 +161,13 @@ func TestPublishMissingBody(t *testing.T) {
 	pub := &mockPublisher{}
 	testLog := logger.NewUPPLogger("test", "debug")
 
-	r.Post("/drafts/content/:uuid/annotations/publish", Publish(pub, timeout, testLog))
+	os.Setenv("JSON_SCHEMAS_PATH", "../schemas")
+	os.Setenv("JSON_SCHEMA_NAME", "annotations-pac.json;annotations-sv.json;annotations-draft.json")
+
+	v := validator.NewSchemaValidator(testLog)
+	jv := v.GetJSONValidator()
+
+	r.Post("/drafts/content/:uuid/annotations/publish", Publish(pub, jv, timeout, testLog))
 
 	w := httptest.NewRecorder()
 	req := httptest.NewRequest("POST", "/drafts/content/a-valid-uuid/annotations/publish", nil)
@@ -157,7 +193,13 @@ func TestPublishBodyReadFail(t *testing.T) {
 	pub := &mockPublisher{}
 	testLog := logger.NewUPPLogger("test", "debug")
 
-	r.Post("/drafts/content/:uuid/annotations/publish", Publish(pub, timeout, testLog))
+	os.Setenv("JSON_SCHEMAS_PATH", "../schemas")
+	os.Setenv("JSON_SCHEMA_NAME", "annotations-pac.json;annotations-sv.json;annotations-draft.json")
+
+	v := validator.NewSchemaValidator(testLog)
+	jv := v.GetJSONValidator()
+
+	r.Post("/drafts/content/:uuid/annotations/publish", Publish(pub, jv, timeout, testLog))
 
 	w := httptest.NewRecorder()
 	req := httptest.NewRequest("POST", "/drafts/content/a-valid-uuid/annotations/publish", &failingReader{err: errors.New("failed to read request body. Please provide a valid json request body")})
@@ -181,7 +223,13 @@ func TestPublishNoHashHeader(t *testing.T) {
 	pub.On("SaveAndPublish", mock.Anything, "a-valid-uuid", "", mock.Anything).Return(nil)
 	testLog := logger.NewUPPLogger("test", "debug")
 
-	r.Post("/drafts/content/:uuid/annotations/publish", Publish(pub, timeout, testLog))
+	os.Setenv("JSON_SCHEMAS_PATH", "../schemas")
+	os.Setenv("JSON_SCHEMA_NAME", "annotations-pac.json;annotations-sv.json;annotations-draft.json")
+
+	v := validator.NewSchemaValidator(testLog)
+	jv := v.GetJSONValidator()
+
+	r.Post("/drafts/content/:uuid/annotations/publish", Publish(pub, jv, timeout, testLog))
 
 	w := httptest.NewRecorder()
 	req := httptest.NewRequest("POST", "/drafts/content/a-valid-uuid/annotations/publish", strings.NewReader(testPublishBody))
@@ -199,7 +247,13 @@ func TestRequestHasNoUUID(t *testing.T) {
 	pub := &mockPublisher{}
 	testLog := logger.NewUPPLogger("test", "debug")
 
-	r.Post("/drafts/content/:uuid/annotations/publish", Publish(pub, timeout, testLog))
+	os.Setenv("JSON_SCHEMAS_PATH", "../schemas")
+	os.Setenv("JSON_SCHEMA_NAME", "annotations-pac.json;annotations-sv.json;annotations-draft.json")
+
+	v := validator.NewSchemaValidator(testLog)
+	jv := v.GetJSONValidator()
+
+	r.Post("/drafts/content/:uuid/annotations/publish", Publish(pub, jv, timeout, testLog))
 
 	w := httptest.NewRecorder()
 	req := httptest.NewRequest("POST", "/drafts/content//annotations/publish", strings.NewReader(`{}`))
@@ -221,7 +275,13 @@ func TestPublishFailed(t *testing.T) {
 	pub.On("SaveAndPublish", mock.Anything, "a-valid-uuid", "hash", mock.Anything).Return(errors.New("eek"))
 	testLog := logger.NewUPPLogger("test", "debug")
 
-	r.Post("/drafts/content/:uuid/annotations/publish", Publish(pub, timeout, testLog))
+	os.Setenv("JSON_SCHEMAS_PATH", "../schemas")
+	os.Setenv("JSON_SCHEMA_NAME", "annotations-pac.json;annotations-sv.json;annotations-draft.json")
+
+	v := validator.NewSchemaValidator(testLog)
+	jv := v.GetJSONValidator()
+
+	r.Post("/drafts/content/:uuid/annotations/publish", Publish(pub, jv, timeout, testLog))
 
 	w := httptest.NewRecorder()
 	req := httptest.NewRequest("POST", "/drafts/content/a-valid-uuid/annotations/publish", strings.NewReader(testPublishBody))
@@ -243,7 +303,14 @@ func TestPublishFromStore(t *testing.T) {
 	pub := &mockPublisher{}
 	testLog := logger.NewUPPLogger("test", "debug")
 	pub.On("PublishFromStore", mock.Anything, "a-valid-uuid").Return(nil)
-	r.Post("/drafts/content/:uuid/annotations/publish", Publish(pub, timeout, testLog))
+
+	os.Setenv("JSON_SCHEMAS_PATH", "../schemas")
+	os.Setenv("JSON_SCHEMA_NAME", "annotations-pac.json;annotations-sv.json;annotations-draft.json")
+
+	v := validator.NewSchemaValidator(testLog)
+	jv := v.GetJSONValidator()
+
+	r.Post("/drafts/content/:uuid/annotations/publish", Publish(pub, jv, timeout, testLog))
 
 	w := httptest.NewRecorder()
 	req := httptest.NewRequest("POST", "/drafts/content/a-valid-uuid/annotations/publish?fromStore=true", nil)
@@ -265,7 +332,13 @@ func TestPublishFromStoreNotFound(t *testing.T) {
 	pub.On("PublishFromStore", mock.Anything, "a-valid-uuid").Return(annotations.ErrDraftNotFound)
 	testLog := logger.NewUPPLogger("test", "debug")
 
-	r.Post("/drafts/content/:uuid/annotations/publish", Publish(pub, timeout, testLog))
+	os.Setenv("JSON_SCHEMAS_PATH", "../schemas")
+	os.Setenv("JSON_SCHEMA_NAME", "annotations-pac.json;annotations-sv.json;annotations-draft.json")
+
+	v := validator.NewSchemaValidator(testLog)
+	jv := v.GetJSONValidator()
+
+	r.Post("/drafts/content/:uuid/annotations/publish", Publish(pub, jv, timeout, testLog))
 
 	w := httptest.NewRecorder()
 	req := httptest.NewRequest("POST", "/drafts/content/a-valid-uuid/annotations/publish?fromStore=true", nil)
@@ -287,7 +360,13 @@ func TestPublishFromStoreTimeout(t *testing.T) {
 	pub.On("PublishFromStore", mock.Anything, "a-valid-uuid").Return(annotations.ErrServiceTimeout)
 	testLog := logger.NewUPPLogger("test", "debug")
 
-	r.Post("/drafts/content/:uuid/annotations/publish", Publish(pub, timeout, testLog))
+	os.Setenv("JSON_SCHEMAS_PATH", "../schemas")
+	os.Setenv("JSON_SCHEMA_NAME", "annotations-pac.json;annotations-sv.json;annotations-draft.json")
+
+	v := validator.NewSchemaValidator(testLog)
+	jv := v.GetJSONValidator()
+
+	r.Post("/drafts/content/:uuid/annotations/publish", Publish(pub, jv, timeout, testLog))
 
 	w := httptest.NewRecorder()
 	req := httptest.NewRequest("POST", "/drafts/content/a-valid-uuid/annotations/publish?fromStore=true", nil)
@@ -308,7 +387,13 @@ func TestPublishFromStoreTrueWithBody(t *testing.T) {
 	pub := &mockPublisher{}
 	testLog := logger.NewUPPLogger("test", "debug")
 
-	r.Post("/drafts/content/:uuid/annotations/publish", Publish(pub, timeout, testLog))
+	os.Setenv("JSON_SCHEMAS_PATH", "../schemas")
+	os.Setenv("JSON_SCHEMA_NAME", "annotations-pac.json;annotations-sv.json;annotations-draft.json")
+
+	v := validator.NewSchemaValidator(testLog)
+	jv := v.GetJSONValidator()
+
+	r.Post("/drafts/content/:uuid/annotations/publish", Publish(pub, jv, timeout, testLog))
 
 	w := httptest.NewRecorder()
 	req := httptest.NewRequest("POST", "/drafts/content/a-valid-uuid/annotations/publish?fromStore=true", strings.NewReader(testPublishBody))
@@ -330,8 +415,13 @@ func TestPublishFromStoreFails(t *testing.T) {
 	pub := &mockPublisher{}
 	pub.On("PublishFromStore", mock.Anything, "a-valid-uuid").Return(errors.New("test error"))
 	testLog := logger.NewUPPLogger("test", "debug")
+	os.Setenv("JSON_SCHEMAS_PATH", "../schemas")
+	os.Setenv("JSON_SCHEMA_NAME", "annotations-pac.json;annotations-sv.json;annotations-draft.json")
 
-	r.Post("/drafts/content/:uuid/annotations/publish", Publish(pub, timeout, testLog))
+	v := validator.NewSchemaValidator(testLog)
+	jv := v.GetJSONValidator()
+
+	r.Post("/drafts/content/:uuid/annotations/publish", Publish(pub, jv, timeout, testLog))
 
 	w := httptest.NewRecorder()
 	req := httptest.NewRequest("POST", "/drafts/content/a-valid-uuid/annotations/publish?fromStore=true", nil)
