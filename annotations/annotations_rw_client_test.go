@@ -96,8 +96,10 @@ func mockGetAnnotations(t *testing.T, expectedTid string, annotations map[string
 }
 
 func TestGetAnnotations(t *testing.T) {
+	ctx := context.Background()
+	ctx = context.WithValue(ctx, CtxOriginSystemIDKey(OriginSystemIDHeader), "test-origin-system-id")
 	testTid := "tid_test"
-	testCtx := tid.TransactionAwareContext(context.Background(), testTid)
+	testCtx := tid.TransactionAwareContext(ctx, testTid)
 	testUUID := uuid.New()
 	expectedAnnotations := map[string]interface{}{"annotations": map[string]interface{}{"predicate": "foo", "id": "bar"}}
 
@@ -123,8 +125,10 @@ func TestGetAnnotations(t *testing.T) {
 }
 
 func TestGetAnnotationsNotFound(t *testing.T) {
+	ctx := context.Background()
+	ctx = context.WithValue(ctx, CtxOriginSystemIDKey(OriginSystemIDHeader), "test-origin-system-id")
 	testTid := "tid_test"
-	testCtx := tid.TransactionAwareContext(context.Background(), testTid)
+	testCtx := tid.TransactionAwareContext(ctx, testTid)
 
 	r := vestigo.NewRouter()
 	r.Get(draftsURL, mockGetAnnotations(t, testTid, map[string]interface{}{}, "", http.StatusNotFound))
@@ -139,9 +143,28 @@ func TestGetAnnotationsNotFound(t *testing.T) {
 	assert.EqualError(t, err, ErrDraftNotFound.Error())
 }
 
-func TestGetAnnotationsFailure(t *testing.T) {
+func TestGetAnnotationsMissingOriginHeader(t *testing.T) {
+	ctx := context.Background()
 	testTid := "tid_test"
-	testCtx := tid.TransactionAwareContext(context.Background(), testTid)
+	testCtx := tid.TransactionAwareContext(ctx, testTid)
+
+	r := vestigo.NewRouter()
+	r.Get(draftsURL, mockGetAnnotations(t, testTid, map[string]interface{}{}, "", http.StatusNotFound))
+
+	server := httptest.NewServer(r)
+	defer server.Close()
+
+	client, err := NewAnnotationsClient(server.URL+"/drafts/content/%s/annotations", testingClient, testLog)
+	require.NoError(t, err)
+
+	_, _, err = client.GetAnnotations(testCtx, uuid.New())
+	assert.EqualError(t, err, ErrMissingOriginHeader.Error())
+}
+func TestGetAnnotationsFailure(t *testing.T) {
+	ctx := context.Background()
+	ctx = context.WithValue(ctx, CtxOriginSystemIDKey(OriginSystemIDHeader), "test-origin-system-id")
+	testTid := "tid_test"
+	testCtx := tid.TransactionAwareContext(ctx, testTid)
 
 	r := vestigo.NewRouter()
 	r.Get(draftsURL, mockGetAnnotations(t, testTid, map[string]interface{}{}, "", http.StatusInternalServerError))
@@ -194,8 +217,10 @@ func mockSaveAnnotations(t *testing.T, expectedTid string, expectedUUID string, 
 }
 
 func TestSaveAnnotations(t *testing.T) {
+	ctx := context.Background()
+	ctx = context.WithValue(ctx, CtxOriginSystemIDKey(OriginSystemIDHeader), "test-origin-system-id")
 	testTid := "tid_test"
-	testCtx := tid.TransactionAwareContext(context.Background(), testTid)
+	testCtx := tid.TransactionAwareContext(ctx, testTid)
 	testUUID := uuid.New()
 	testAnnotations := map[string]interface{}{"annotations": map[string]interface{}{"predicate": "foo", "id": "bar"}}
 
@@ -217,9 +242,36 @@ func TestSaveAnnotations(t *testing.T) {
 	assert.Equal(t, testAnnotations, actual)
 }
 
-func TestSaveAnnotationsCreatedStatus(t *testing.T) {
+func TestSaveAnnotationsMissingOriginHeader(t *testing.T) {
+	ctx := context.Background()
 	testTid := "tid_test"
-	testCtx := tid.TransactionAwareContext(context.Background(), testTid)
+	testCtx := tid.TransactionAwareContext(ctx, testTid)
+	testUUID := uuid.New()
+	testAnnotations := map[string]interface{}{}
+
+	expectedHash := ""
+	previousHash := "oldhasholdhasholdhash"
+
+	r := vestigo.NewRouter()
+	r.Put(draftsURL, mockSaveAnnotations(t, testTid, testUUID, previousHash, expectedHash, http.StatusOK, true))
+
+	server := httptest.NewServer(r)
+	defer server.Close()
+
+	client, err := NewAnnotationsClient(server.URL+"/drafts/content/%s/annotations", testingClient, testLog)
+	require.NoError(t, err)
+
+	actual, actualHash, err := client.SaveAnnotations(testCtx, testUUID, previousHash, testAnnotations)
+	assert.Equal(t, ErrMissingOriginHeader, err)
+	assert.Equal(t, expectedHash, actualHash)
+	assert.Equal(t, testAnnotations, actual)
+}
+
+func TestSaveAnnotationsCreatedStatus(t *testing.T) {
+	ctx := context.Background()
+	ctx = context.WithValue(ctx, CtxOriginSystemIDKey(OriginSystemIDHeader), "test-origin-system-id")
+	testTid := "tid_test"
+	testCtx := tid.TransactionAwareContext(ctx, testTid)
 	testUUID := uuid.New()
 	testAnnotations := map[string]interface{}{"annotations": map[string]interface{}{"predicate": "foo", "id": "bar"}}
 
@@ -242,8 +294,10 @@ func TestSaveAnnotationsCreatedStatus(t *testing.T) {
 }
 
 func TestSaveAnnotationsError(t *testing.T) {
+	ctx := context.Background()
+	ctx = context.WithValue(ctx, CtxOriginSystemIDKey(OriginSystemIDHeader), "test-origin-system-id")
 	testTid := "tid_test"
-	testCtx := tid.TransactionAwareContext(context.Background(), testTid)
+	testCtx := tid.TransactionAwareContext(ctx, testTid)
 	testUUID := uuid.New()
 	testAnnotations := map[string]interface{}{"annotations": map[string]interface{}{"predicate": "foo", "id": "bar"}}
 
@@ -262,8 +316,10 @@ func TestSaveAnnotationsError(t *testing.T) {
 }
 
 func TestSaveAnnotationsWriterReturnsNoBody(t *testing.T) {
+	ctx := context.Background()
+	ctx = context.WithValue(ctx, CtxOriginSystemIDKey(OriginSystemIDHeader), "test-origin-system-id")
 	testTid := "tid_test"
-	testCtx := tid.TransactionAwareContext(context.Background(), testTid)
+	testCtx := tid.TransactionAwareContext(ctx, testTid)
 	testUUID := uuid.New()
 	testAnnotations := map[string]interface{}{"annotations": map[string]interface{}{"predicate": "foo", "id": "bar"}}
 

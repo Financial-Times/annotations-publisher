@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"net/url"
@@ -18,6 +19,8 @@ const (
 	DocumentHashHeader         = "Document-Hash"
 	PreviousDocumentHashHeader = "Previous-Document-Hash"
 )
+
+var ErrMissingOriginHeader = errors.New("X-Origin-System-Id header not found in context")
 
 type AnnotationsClient interface {
 	health.ExternalService
@@ -85,7 +88,12 @@ func (rw *genericRWClient) GetAnnotations(ctx context.Context, uuid string) (map
 	q.Add("sendHasBrand", strconv.FormatBool(true))
 	req.URL.RawQuery = q.Encode()
 
-	req.Header.Set("X-Origin-System-Id", ctx.Value(CtxOriginSystemIDKey(OriginSystemIDHeader)).(string))
+	headerToAssert := ctx.Value(CtxOriginSystemIDKey(OriginSystemIDHeader))
+	originHeader, ok := headerToAssert.(string)
+	if !ok {
+		return map[string]interface{}{}, "", ErrMissingOriginHeader
+	}
+	req.Header.Set("X-Origin-System-Id", originHeader)
 	req.Header.Set("Accept", "application/json")
 
 	resp, err := rw.client.Do(req.WithContext(ctx))
@@ -121,7 +129,12 @@ func (rw *genericRWClient) SaveAnnotations(ctx context.Context, uuid string, has
 		return map[string]interface{}{}, "", err
 	}
 
-	req.Header.Set("X-Origin-System-Id", ctx.Value(CtxOriginSystemIDKey(OriginSystemIDHeader)).(string))
+	headerToAssert := ctx.Value(CtxOriginSystemIDKey(OriginSystemIDHeader))
+	originHeader, ok := headerToAssert.(string)
+	if !ok {
+		return map[string]interface{}{}, "", ErrMissingOriginHeader
+	}
+	req.Header.Set("X-Origin-System-Id", originHeader)
 	req.Header.Set(PreviousDocumentHashHeader, hash)
 	req.Header.Set("Accept", "application/json")
 
