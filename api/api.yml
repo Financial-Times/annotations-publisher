@@ -39,6 +39,9 @@ paths:
           schema:
             type: object
             properties:
+              uuid:
+                type: string
+                x-example: 8b956373-1129-4e37-95b0-7bfc914ded70
               annotations:
                 type: array
                 items:
@@ -52,6 +55,7 @@ paths:
                       type: string
                       x-example: 'http://www.ft.com/ontology/hasContributor'
             example:
+              uuid: 8b956373-1129-4e37-95b0-7bfc914ded70
               annotations:
                 - id: 'http://www.ft.com/thing/5bd49568-6d7c-3c10-a5b0-2f3fd5974a6b'
                   predicate: 'http://www.ft.com/ontology/hasContributor'
