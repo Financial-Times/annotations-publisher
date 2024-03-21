@@ -1,9 +1,10 @@
 package main
 
 import (
-	"fmt"
 	"net/http"
 	"os"
+	"os/signal"
+	"syscall"
 	"time"
 
 	"github.com/Financial-Times/annotations-publisher/annotations"
@@ -13,19 +14,19 @@ import (
 	"github.com/Financial-Times/cm-annotations-ontology/validator"
 	"github.com/Financial-Times/go-ft-http/fthttp"
 	l "github.com/Financial-Times/go-logger/v2"
-	"github.com/Financial-Times/http-handlers-go/httphandlers"
 	status "github.com/Financial-Times/service-status-go/httphandlers"
-	"github.com/husobee/vestigo"
+	"github.com/Financial-Times/upp-go-sdk/pkg/server"
+	"github.com/gorilla/mux"
 	cli "github.com/jawher/mow.cli"
-	"github.com/rcrowley/go-metrics"
 )
 
 const (
 	appDescription = "PAC Annotations Publisher"
+	appCode        = "annotations-publisher"
 )
 
 func main() {
-	app := cli.App("annotations-publisher", appDescription)
+	app := cli.App(appCode, appDescription)
 
 	appSystemCode := app.String(cli.StringOpt{
 		Name:   "app-system-code",
@@ -41,9 +42,9 @@ func main() {
 		EnvVar: "APP_NAME",
 	})
 
-	port := app.String(cli.StringOpt{
+	port := app.Int(cli.IntOpt{
 		Name:   "port",
-		Value:  "8080",
+		Value:  8080,
 		Desc:   "Port to listen on",
 		EnvVar: "APP_PORT",
 	})
@@ -71,7 +72,7 @@ func main() {
 
 	apiYml := app.String(cli.StringOpt{
 		Name:   "api-yml",
-		Value:  "./api.yml",
+		Value:  "api/api.yml",
 		Desc:   "Location of the API Swagger YML file.",
 		EnvVar: "API_YML",
 	})
@@ -94,7 +95,7 @@ func main() {
 	logger.Infof("[Startup] %v is starting", *appSystemCode)
 
 	app.Action = func() {
-		logger.Infof("System code: %s, App Name: %s, Port: %s", *appSystemCode, *appName, *port)
+		logger.Infof("System code: %s, App Name: %s, Port: %d", *appSystemCode, *appName, *port)
 		timeout, err := time.ParseDuration(*httpTimeout)
 		if err != nil {
 			logger.WithError(err).Fatal("Provided http timeout is not in the standard duration format.")
@@ -106,6 +107,7 @@ func main() {
 		if err != nil {
 			logger.WithError(err).Fatal("Failed to create new draft annotations writer.")
 		}
+		//TODO: remove this after testing
 		os.Setenv("JSON_SCHEMAS_PATH", "./schemas")
 		os.Setenv("JSON_SCHEMA_NAME", "annotations-pac.json;annotations-sv.json;annotations-draft.json")
 
@@ -125,35 +127,41 @@ func main() {
 	}
 }
 
-func serveEndpoints(port string, apiYml *string, publisher annotations.Publisher, jv resources.JSONValidator, healthService *health.Service, timeout time.Duration, logger *l.UPPLogger) {
-	r := vestigo.NewRouter()
-	r.Post("/drafts/content/:uuid/annotations/publish", resources.Publish(publisher, jv, timeout, logger))
+func serveEndpoints(port int, apiYml *string, publisher annotations.Publisher, jv resources.JSONValidator, healthService *health.Service, timeout time.Duration, logger *l.UPPLogger) {
+	srv := server.New(
+		func(r *mux.Router) {
+			r.HandleFunc("/drafts/content/{uuid}/annotations/publish", resources.Publish(publisher, jv, timeout, logger)).Methods(http.MethodPost)
+			r.HandleFunc(status.BuildInfoPath, status.BuildInfoHandler)
+			r.HandleFunc(status.GTGPath, status.NewGoodToGoHandler(healthService.GTG))
 
-	var monitoringRouter http.Handler = r
-	monitoringRouter = httphandlers.TransactionAwareRequestLoggingHandler(logger.Logger, monitoringRouter)
-	monitoringRouter = httphandlers.HTTPMetricsHandler(metrics.DefaultRegistry, monitoringRouter)
+			if apiYml != nil {
+				apiEndpoint, err := api.NewAPIEndpointForFile(*apiYml)
+				if err != nil {
+					logger.WithError(err).WithField("file", *apiYml).Warn("Failed to serve the API Endpoint for this service. Please validate the Swagger YML and the file location")
+				} else {
+					r.Handle(api.DefaultPath, apiEndpoint)
+				}
+			}
+		},
+		server.WithTIDAwareRequestLogging(logger),
+		server.WithHealthCheckHander(healthService.HealthCheckHandleFunc()),
+		server.WithCustomAppPort(port),
+	)
 
-	r.Get("/__health", healthService.HealthCheckHandleFunc())
-	r.Get(status.GTGPath, status.NewGoodToGoHandler(healthService.GTG))
-	r.Get(status.BuildInfoPath, status.BuildInfoHandler)
-
-	http.Handle("/", monitoringRouter)
-
-	if apiYml != nil {
-		apiEndpoint, err := api.NewAPIEndpointForFile(*apiYml)
-		if err != nil {
-			logger.WithError(err).WithField("file", *apiYml).Warn("Failed to serve the API Endpoint for this service. Please validate the Swagger YML and the file location")
-		} else {
-			r.Get(api.DefaultPath, apiEndpoint.ServeHTTP)
+	go func() {
+		if err := srv.Start(); err != nil {
+			logger.Infof("HTTP server closing with message: %v", err)
 		}
-	}
+	}()
 
-	server := &http.Server{
-		Addr:              fmt.Sprintf(":%s", port),
-		ReadHeaderTimeout: 8 * time.Second,
-	}
+	defer func() {
+		logger.Info("HTTP server shutting down")
+		if err := srv.Close(); err != nil {
+			logger.WithError(err).Error("failed to close the server")
+		}
+	}()
 
-	if err := server.ListenAndServe(); err != nil {
-		logger.Fatalf("Unable to start: %v", err)
-	}
+	ch := make(chan os.Signal, 1)
+	signal.Notify(ch, os.Interrupt, syscall.SIGINT, syscall.SIGTERM)
+	<-ch
 }

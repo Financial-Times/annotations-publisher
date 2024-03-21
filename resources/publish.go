@@ -13,7 +13,7 @@ import (
 	"github.com/Financial-Times/annotations-publisher/annotations"
 	"github.com/Financial-Times/go-logger/v2"
 	tid "github.com/Financial-Times/transactionid-utils-go"
-	"github.com/husobee/vestigo"
+	"github.com/gorilla/mux"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -35,7 +35,8 @@ func Publish(publisher annotations.Publisher, jv JSONValidator, httpTimeOut time
 		}
 		ctx = context.WithValue(ctx, annotations.CtxOriginSystemIDKey(annotations.OriginSystemIDHeader), origin)
 
-		uuid := vestigo.Param(r, "uuid")
+		vars := mux.Vars(r)
+		uuid := vars["uuid"]
 		if uuid == "" {
 			writeMsg(w, http.StatusBadRequest, "Please specify a valid uuid in the request")
 			return
