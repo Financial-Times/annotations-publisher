@@ -7,11 +7,9 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
-	"net/url"
 	"strconv"
 
 	"github.com/Financial-Times/go-logger/v2"
-	status "github.com/Financial-Times/service-status-go/httphandlers"
 )
 
 const (
@@ -34,16 +32,11 @@ type RWClient struct {
 	logger      *logger.UPPLogger
 }
 
-func NewAnnotationsClient(endpoint string, client *http.Client, logger *logger.UPPLogger) (*RWClient, error) {
-	v, err := url.Parse(fmt.Sprintf(endpoint, "dummy"))
-	if err != nil {
-		return nil, err
-	}
+func NewAnnotationsClient(endpoint string, gtgEndpoint string, client *http.Client, logger *logger.UPPLogger) *RWClient {
+	r := &RWClient{client: client, rwEndpoint: endpoint, gtgEndpoint: gtgEndpoint, logger: logger}
+	logger.WithField("endpoint", r.Endpoint()).Info("draft annotations r/w endpoint")
 
-	gtg, _ := url.Parse(status.GTGPath)
-	gtgURL := v.ResolveReference(gtg)
-
-	return &RWClient{client: client, rwEndpoint: endpoint, gtgEndpoint: gtgURL.String(), logger: logger}, nil
+	return r
 }
 
 func (rw *RWClient) GTG() error {

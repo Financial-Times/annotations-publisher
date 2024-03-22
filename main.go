@@ -10,6 +10,7 @@ import (
 	"github.com/Financial-Times/annotations-publisher/external"
 	"github.com/Financial-Times/annotations-publisher/handler"
 	"github.com/Financial-Times/annotations-publisher/health"
+	"github.com/Financial-Times/annotations-publisher/service"
 	"github.com/Financial-Times/api-endpoint"
 	"github.com/Financial-Times/cm-annotations-ontology/validator"
 	"github.com/Financial-Times/go-ft-http/fthttp"
@@ -58,7 +59,7 @@ func main() {
 	})
 
 	draftsGTGEndpoint := app.String(cli.StringOpt{
-		Name:   "draft-annotations-rw-endpoint",
+		Name:   "draft-annotations-rw-gtg-endpoint",
 		Desc:   "GTG Endpoint for saving/reading draft annotations",
 		Value:  "http://draft-annotations-api:8080/__gtg",
 		EnvVar: "DRAFT_ANNOTATIONS_RW_GTG_ENDPOINT",
@@ -111,10 +112,11 @@ func main() {
 
 		httpClient := fthttp.NewClient(timeout, "PAC", *appSystemCode)
 
-		draftAnnotationsAPI, err := external.NewAnnotationsClient(*draftsEndpoint, *draftsGTGEndpoint, httpClient, logger)
-		if err != nil {
-			logger.WithError(err).Fatal("Failed to create new draft annotations writer.")
-		}
+		draftAnnotationsAPI := external.NewAnnotationsClient(*draftsEndpoint, *draftsGTGEndpoint, httpClient, logger)
+		notifierAPI := external.NewPublisher(*metadataNotifier, *metadataNotifierGTGEndpoint, httpClient, logger)
+
+		publisher := service.NewPublisher(logger, draftAnnotationsAPI, notifierAPI)
+
 		//TODO: remove this after testing
 		os.Setenv("JSON_SCHEMAS_PATH", "./schemas")
 		os.Setenv("JSON_SCHEMA_NAME", "annotations-pac.json;annotations-sv.json;annotations-draft.json")
@@ -122,8 +124,7 @@ func main() {
 		v := validator.NewSchemaValidator(logger)
 		jv := v.GetJSONValidator()
 		sh := v.GetSchemaHandler()
-		notifierAPI := external.NewPublisher(*metadataNotifier, *metadataNotifierGTGEndpoint, httpClient, logger)
-		h := handler.NewHandler(logger, notifierAPI, draftAnnotationsAPI, jv, sh)
+		h := handler.NewHandler(logger, publisher, jv, sh)
 		healthService := health.NewHealthService(*appSystemCode, *appName, appDescription, notifierAPI, draftAnnotationsAPI)
 
 		serveEndpoints(*port, apiYml, h, healthService, timeout, logger)

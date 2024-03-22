@@ -38,8 +38,7 @@ type UppPublisher struct {
 }
 
 // NewPublisher returns a new Publisher instance
-func NewPublisher(draftAnnotationsClient *RWClient, publishEndpoint string, gtgEndpoint string, client *http.Client, logger *logger.UPPLogger) *UppPublisher {
-	logger.WithField("endpoint", draftAnnotationsClient.Endpoint()).Info("draft annotations r/w endpoint")
+func NewPublisher(publishEndpoint string, gtgEndpoint string, client *http.Client, logger *logger.UPPLogger) *UppPublisher {
 	logger.WithField("endpoint", publishEndpoint).Info("publish endpoint")
 
 	return &UppPublisher{

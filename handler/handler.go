@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"errors"
 	"io"
-	"net"
 	"net/http"
 	"strconv"
 	"strings"
@@ -27,17 +26,20 @@ type SchemaHandler interface {
 }
 type Handler struct {
 	logger    *logger.UPPLogger
-	publisher *external.UppPublisher
-	draftAPI  *external.RWClient
+	publisher publisher
 	jv        JSONValidator
 	sh        SchemaHandler
 }
 
-func NewHandler(l *logger.UPPLogger, p *external.UppPublisher, draftAPI *external.RWClient, jv JSONValidator, sh SchemaHandler) *Handler {
+type publisher interface {
+	PublishFromStore(ctx context.Context, uuid string) error
+	SaveAndPublish(ctx context.Context, uuid string, hash string, body map[string]interface{}) error
+}
+
+func NewHandler(l *logger.UPPLogger, p publisher, jv JSONValidator, sh SchemaHandler) *Handler {
 	return &Handler{
 		logger:    l,
 		publisher: p,
-		draftAPI:  draftAPI,
 		jv:        jv,
 		sh:        sh,
 	}
@@ -82,7 +84,7 @@ func (h *Handler) Publish(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if fromStore {
-		err = h.publishFromStore(ctx, uuid)
+		err = h.publisher.PublishFromStore(ctx, uuid)
 		if err == nil {
 			writeMsg(w, http.StatusAccepted, "Publish accepted")
 		} else if errors.Is(err, external.ErrServiceTimeout) {
@@ -111,7 +113,7 @@ func (h *Handler) Publish(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err = h.saveAndPublish(ctx, uuid, hash, body)
+	err = h.publisher.SaveAndPublish(ctx, uuid, hash, body)
 	if errors.Is(err, external.ErrServiceTimeout) {
 		writeMsg(w, http.StatusGatewayTimeout, err.Error())
 		return
@@ -128,46 +130,6 @@ func (h *Handler) Publish(w http.ResponseWriter, r *http.Request) {
 	writeMsg(w, http.StatusAccepted, "Publish accepted")
 }
 
-func (h *Handler) saveAndPublish(ctx context.Context, uuid string, hash string, body map[string]interface{}) error {
-	txid, _ := tid.GetTransactionIDFromContext(ctx)
-	_, _, err := h.draftAPI.SaveAnnotations(ctx, uuid, hash, body)
-
-	if err != nil {
-		if isTimeoutErr(err) {
-			h.logger.WithTransactionID(txid).WithError(err).Error("write to draft annotations timed out")
-			return external.ErrServiceTimeout
-		}
-
-		h.logger.WithError(err).Error("write to draft annotations failed")
-		return err
-	}
-	return h.publishFromStore(ctx, uuid)
-}
-
-func (h *Handler) publishFromStore(ctx context.Context, uuid string) error {
-	txid, _ := tid.GetTransactionIDFromContext(ctx)
-
-	var draft map[string]interface{}
-	var hash string
-	var published map[string]interface{}
-	var err error
-
-	if draft, hash, err = h.draftAPI.GetAnnotations(ctx, uuid); err == nil {
-		published, _, err = h.draftAPI.SaveAnnotations(ctx, uuid, hash, draft)
-	}
-
-	if err != nil {
-		if isTimeoutErr(err) {
-			h.logger.WithTransactionID(txid).WithError(err).Error("r/w to draft annotations timed out ")
-			return external.ErrServiceTimeout
-		}
-		h.logger.WithError(err).Error("r/w to draft annotations failed")
-		return err
-
-	}
-	return h.publisher.Publish(ctx, uuid, published)
-}
-
 func writeMsg(w http.ResponseWriter, status int, msg string) {
 	w.Header().Add("Content-Type", "application/json")
 	w.WriteHeader(status)
@@ -177,8 +139,4 @@ func writeMsg(w http.ResponseWriter, status int, msg string) {
 
 	enc := json.NewEncoder(w)
 	_ = enc.Encode(&resp)
-}
-func isTimeoutErr(err error) bool {
-	netErr, ok := err.(net.Error)
-	return ok && netErr.Timeout()
 }
