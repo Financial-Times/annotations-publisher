@@ -176,36 +176,10 @@ func respondWithMessage(w http.ResponseWriter, statusCode int, messageTxt string
 	_, _ = w.Write(resp)
 }
 
-//func (h *Handler) listSchemas(w http.ResponseWriter, r *http.Request) {
-//	tid := transactionIDUtils.GetTransactionIDFromRequest(r)
-//	log := h.log.WithTransactionID(tid)
-//
-//	accessFrom := r.Header.Get(accessFromHeader)
-//	if accessFrom == "" {
-//		r.Header.Set(accessFromHeader, basicAuth)
-//	}
-//
-//	decision, err := h.agent.Authorize(policy.AuthorizationQuery{
-//		Headers: r.Header,
-//	}, policy.ListSchemasPathKey)
-//
-//	if err != nil {
-//		msg := "Failed to authorize request"
-//		log.WithError(err).Error(msg)
-//		respondWithMessage(w, msg, http.StatusInternalServerError)
-//		return
-//	}
-//
-//	if !decision.Result.(bool) {
-//		msg := "Authorization failure"
-//		log.WithError(err).Error(msg)
-//		respondWithMessage(w, msg, http.StatusUnauthorized)
-//		return
-//	}
-//
-//	h.schemaHandler.ListSchemas(w, r)
-//}
-//
+func (h *Handler) ListSchemas(w http.ResponseWriter, r *http.Request) {
+	h.sh.ListSchemas(w, r)
+}
+
 //func (h *Handler) getSchema(w http.ResponseWriter, r *http.Request) {
 //	tid := transactionIDUtils.GetTransactionIDFromRequest(r)
 //	log := h.log.WithTransactionID(tid)
