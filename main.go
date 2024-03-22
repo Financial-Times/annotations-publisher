@@ -57,6 +57,13 @@ func main() {
 		EnvVar: "DRAFT_ANNOTATIONS_RW_ENDPOINT",
 	})
 
+	draftsGTGEndpoint := app.String(cli.StringOpt{
+		Name:   "draft-annotations-rw-endpoint",
+		Desc:   "GTG Endpoint for saving/reading draft annotations",
+		Value:  "http://draft-annotations-api:8080/__gtg",
+		EnvVar: "DRAFT_ANNOTATIONS_RW_GTG_ENDPOINT",
+	})
+
 	metadataNotifier := app.String(cli.StringOpt{
 		Name:   "metadata-notifier-endpoint",
 		Value:  "http://cms-metadata-notifier:8080/notify",
@@ -104,7 +111,7 @@ func main() {
 
 		httpClient := fthttp.NewClient(timeout, "PAC", *appSystemCode)
 
-		draftAnnotationsRW, err := external.NewAnnotationsClient(*draftsEndpoint, httpClient, logger)
+		draftAnnotationsAPI, err := external.NewAnnotationsClient(*draftsEndpoint, *draftsGTGEndpoint, httpClient, logger)
 		if err != nil {
 			logger.WithError(err).Fatal("Failed to create new draft annotations writer.")
 		}
@@ -115,9 +122,9 @@ func main() {
 		v := validator.NewSchemaValidator(logger)
 		jv := v.GetJSONValidator()
 		sh := v.GetSchemaHandler()
-		publisher := external.NewPublisher(draftAnnotationsRW, *metadataNotifier, *metadataNotifierGTGEndpoint, httpClient, logger)
-		h := handler.NewHandler(logger, publisher, draftAnnotationsRW, jv, sh)
-		healthService := health.NewHealthService(*appSystemCode, *appName, appDescription, publisher, draftAnnotationsRW)
+		notifierAPI := external.NewPublisher(*metadataNotifier, *metadataNotifierGTGEndpoint, httpClient, logger)
+		h := handler.NewHandler(logger, notifierAPI, draftAnnotationsAPI, jv, sh)
+		healthService := health.NewHealthService(*appSystemCode, *appName, appDescription, notifierAPI, draftAnnotationsAPI)
 
 		serveEndpoints(*port, apiYml, h, healthService, timeout, logger)
 	}
