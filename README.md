@@ -31,16 +31,16 @@ go test ./... -v -race
 $GOPATH/bin/annotations-publisher [--help]
 
 Options:
-	--app-system-code="annotations-publisher"                                                              System Code of the application ($APP_SYSTEM_CODE)
-	--app-name="annotations-publisher"                                                                     Application name ($APP_NAME)
-	--port="8080"                                                                                          Port to listen on ($APP_PORT)
-	--draft-annotations-rw-endpoint="http://draft-annotations-api:8080/drafts/content/%v/annotations"      Endpoint for saving/reading draft annotations ($DRAFT_ANNOTATIONS_RW_ENDPOINT)
-	--annotations-publish-endpoint=""                                                                      Endpoint to publish annotations to UPP ($ANNOTATIONS_PUBLISH_ENDPOINT)
-	--annotations-publish-gtg-endpoint=""                                                                  GTG Endpoint for publishing annotations to UPP ($ANNOTATIONS_PUBLISH_GTG_ENDPOINT)
-	--origin-system-id="http://cmdb.ft.com/systems/pac"                                                    The system this publish originated from ($ORIGIN_SYSTEM_ID)
-	--api-yml="./api.yml"                                                                                  Location of the API Swagger YML file. ($API_YML)
-	--http-timeout="8s"                                                                                    http client timeout in seconds ($HTTP_CLIENT_TIMEOUT)
-```
+  --app-system-code="annotations-publisher"                                                           System Code of the application ($APP_SYSTEM_CODE)
+  --app-name="annotations-publisher"                                                                  Application name ($APP_NAME)
+  --port=8080                                                                                         Port to listen on ($APP_PORT)
+  --draft-annotations-rw-endpoint="http://draft-annotations-api:8080/drafts/content/%v/annotations"   Endpoint for saving/reading draft annotations ($DRAFT_ANNOTATIONS_RW_ENDPOINT)
+  --draft-annotations-rw-gtg-endpoint="http://draft-annotations-api:8080/__gtg"                       GTG Endpoint for saving/reading draft annotations ($DRAFT_ANNOTATIONS_RW_GTG_ENDPOINT)
+  --metadata-notifier-endpoint="http://cms-metadata-notifier:8080/notify"                             Endpoint to publish annotations to UPP ($METADATA_NOTIFIER_ENDPOINT)
+  --metadata-notifier-gtg-endpoint="http://cms-metadata-notifier:8080/__gtg"                          GTG Endpoint for publishing annotations to UPP ($METADATA_NOTIFIER_GTG_ENDPOINT)
+  --api-yml="api/api.yml"                                                                             Location of the API Swagger YML file. ($API_YML)
+  --http-timeout="8s"                                                                                 http client timeout in seconds ($HTTP_CLIENT_TIMEOUT)
+  --log-Level="INFO"                                                                                  Logging level (DEBUG, INFO, WARN, ERROR) ($LOG_LEVEL)```
 
 3. Check the service health:
 
