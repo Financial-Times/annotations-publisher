@@ -4,10 +4,10 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"net/http"
 	"strconv"
-	"strings"
 	"time"
 
 	"github.com/Financial-Times/annotations-publisher/draft"
@@ -53,7 +53,7 @@ func (h *Handler) Publish(w http.ResponseWriter, r *http.Request) {
 
 	origin := r.Header.Get(notifier.OriginSystemIDHeader)
 	if origin == "" {
-		writeMsg(w, http.StatusBadRequest, "Invalid request: X-Origin-System-Id header missing")
+		respondWithMessage(w, http.StatusBadRequest, "Invalid request: X-Origin-System-Id header missing")
 		return
 	}
 	ctx = context.WithValue(ctx, notifier.CtxOriginSystemIDKey(notifier.OriginSystemIDHeader), origin)
@@ -61,7 +61,7 @@ func (h *Handler) Publish(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	uuid := vars["uuid"]
 	if uuid == "" {
-		writeMsg(w, http.StatusBadRequest, "Please specify a valid uuid in the request")
+		respondWithMessage(w, http.StatusBadRequest, "Please specify a valid uuid in the request")
 		return
 	}
 
@@ -72,29 +72,29 @@ func (h *Handler) Publish(w http.ResponseWriter, r *http.Request) {
 	bodyBytes, err := io.ReadAll(r.Body)
 	if err != nil {
 		h.logger.WithTransactionID(txid).WithField("reason", err).Warn("error reading body")
-		writeMsg(w, http.StatusBadRequest, "Failed to read request body. Please provide a valid json request body")
+		respondWithMessage(w, http.StatusBadRequest, "Failed to read request body. Please provide a valid json request body")
 		return
 	}
 
 	if fromStore && len(bodyBytes) > 0 {
-		writeMsg(w, http.StatusBadRequest, "A request body cannot be provided when fromStore=true")
+		respondWithMessage(w, http.StatusBadRequest, "A request body cannot be provided when fromStore=true")
 		return
 	}
 	if !fromStore && len(bodyBytes) == 0 {
-		writeMsg(w, http.StatusBadRequest, "Please provide a valid json request body")
+		respondWithMessage(w, http.StatusBadRequest, "Please provide a valid json request body")
 		return
 	}
 	if fromStore {
 		err = h.publisher.PublishFromStore(ctx, uuid)
 		if err == nil {
-			writeMsg(w, http.StatusAccepted, "Publish accepted")
+			respondWithMessage(w, http.StatusAccepted, "Publish accepted")
 		} else if errors.Is(err, notifier.ErrServiceTimeout) {
-			writeMsg(w, http.StatusGatewayTimeout, err.Error())
+			respondWithMessage(w, http.StatusGatewayTimeout, err.Error())
 		} else if errors.Is(err, notifier.ErrDraftNotFound) {
-			writeMsg(w, http.StatusNotFound, err.Error())
+			respondWithMessage(w, http.StatusNotFound, err.Error())
 		} else {
 			h.logger.WithTransactionID(txid).WithError(err).Error("Unable to publish annotations from store")
-			writeMsg(w, http.StatusInternalServerError, "Unable to publish annotations from store")
+			respondWithMessage(w, http.StatusInternalServerError, "Unable to publish annotations from store")
 		}
 		return
 	}
@@ -103,41 +103,135 @@ func (h *Handler) Publish(w http.ResponseWriter, r *http.Request) {
 	err = json.Unmarshal(bodyBytes, &body)
 	if err != nil {
 		h.logger.WithTransactionID(txid).WithField("reason", err).Warn("failed to unmarshal publish body")
-		writeMsg(w, http.StatusBadRequest, "Failed to process request json. Please provide a valid json request body")
+		respondWithMessage(w, http.StatusBadRequest, "Failed to process request json. Please provide a valid json request body")
 		return
 	}
 
 	err = h.jv.Validate(body)
 	if err != nil {
 		h.logger.WithTransactionID(txid).WithField("reason", err).Warn("failed to validate schema")
-		writeMsg(w, http.StatusBadRequest, "Failed to validate json schema. Please provide a valid json request body")
+		respondWithMessage(w, http.StatusBadRequest, "Failed to validate json schema. Please provide a valid json request body")
 		return
 	}
 
 	err = h.publisher.SaveAndPublish(ctx, uuid, hash, body)
 	if errors.Is(err, notifier.ErrServiceTimeout) {
-		writeMsg(w, http.StatusGatewayTimeout, err.Error())
+		respondWithMessage(w, http.StatusGatewayTimeout, err.Error())
 		return
 	}
 	if errors.Is(err, notifier.ErrDraftNotFound) {
-		writeMsg(w, http.StatusNotFound, err.Error())
+		respondWithMessage(w, http.StatusNotFound, err.Error())
 		return
 	}
 	if err != nil {
 		h.logger.WithTransactionID(txid).WithField("reason", err).Error("failed to publish annotations to UPP")
-		writeMsg(w, http.StatusServiceUnavailable, err.Error())
+		respondWithMessage(w, http.StatusServiceUnavailable, err.Error())
 		return
 	}
-	writeMsg(w, http.StatusAccepted, "Publish accepted")
+	respondWithMessage(w, http.StatusAccepted, "Publish accepted")
 }
 
-func writeMsg(w http.ResponseWriter, status int, msg string) {
-	w.Header().Add("Content-Type", "application/json")
-	w.WriteHeader(status)
+func (h *Handler) Validate(w http.ResponseWriter, r *http.Request) {
+	txid := tid.GetTransactionIDFromRequest(r)
 
-	resp := make(map[string]interface{})
-	resp["message"] = strings.ToUpper(msg[:1]) + msg[1:]
+	b, err := io.ReadAll(r.Body)
+	if err != nil {
+		msg := "Failed to read request body"
+		h.logger.WithTransactionID(txid).WithError(err).Error(msg)
+		respondWithMessage(w, http.StatusBadRequest, msg)
+		return
+	}
 
-	enc := json.NewEncoder(w)
-	_ = enc.Encode(&resp)
+	var body map[string]interface{}
+	err = json.Unmarshal(b, &body)
+	if err != nil {
+		msg := fmt.Sprintf("Failed to unmarshal request body: %v", err)
+		log.WithError(err).Error(msg)
+		respondWithMessage(w, http.StatusBadRequest, msg)
+		return
+	}
+
+	err = h.jv.Validate(body)
+	if err != nil {
+		msg := fmt.Sprintf("Failed to validate request body: %v", err)
+		log.WithError(err).Error(msg)
+		respondWithMessage(w, http.StatusBadRequest, msg)
+		return
+	}
+
+	w.WriteHeader(http.StatusOK)
 }
+
+func respondWithMessage(w http.ResponseWriter, statusCode int, messageTxt string) {
+	type messageResponse struct {
+		Message string `json:"message"`
+	}
+
+	mess := &messageResponse{Message: messageTxt}
+
+	resp, _ := json.Marshal(mess)
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(statusCode)
+	_, _ = w.Write(resp)
+}
+
+//func (h *Handler) listSchemas(w http.ResponseWriter, r *http.Request) {
+//	tid := transactionIDUtils.GetTransactionIDFromRequest(r)
+//	log := h.log.WithTransactionID(tid)
+//
+//	accessFrom := r.Header.Get(accessFromHeader)
+//	if accessFrom == "" {
+//		r.Header.Set(accessFromHeader, basicAuth)
+//	}
+//
+//	decision, err := h.agent.Authorize(policy.AuthorizationQuery{
+//		Headers: r.Header,
+//	}, policy.ListSchemasPathKey)
+//
+//	if err != nil {
+//		msg := "Failed to authorize request"
+//		log.WithError(err).Error(msg)
+//		respondWithMessage(w, msg, http.StatusInternalServerError)
+//		return
+//	}
+//
+//	if !decision.Result.(bool) {
+//		msg := "Authorization failure"
+//		log.WithError(err).Error(msg)
+//		respondWithMessage(w, msg, http.StatusUnauthorized)
+//		return
+//	}
+//
+//	h.schemaHandler.ListSchemas(w, r)
+//}
+//
+//func (h *Handler) getSchema(w http.ResponseWriter, r *http.Request) {
+//	tid := transactionIDUtils.GetTransactionIDFromRequest(r)
+//	log := h.log.WithTransactionID(tid)
+//
+//	accessFrom := r.Header.Get(accessFromHeader)
+//	if accessFrom == "" {
+//		r.Header.Set(accessFromHeader, basicAuth)
+//	}
+//
+//	decision, err := h.agent.Authorize(policy.AuthorizationQuery{
+//		Headers: r.Header,
+//	}, policy.GetSchemaPathKey)
+//
+//	if err != nil {
+//		msg := "Failed to authorize request"
+//		log.WithError(err).Error(msg)
+//		respondWithMessage(w, msg, http.StatusInternalServerError)
+//		return
+//	}
+//
+//	if !decision.Result.(bool) {
+//		msg := "Authorization failure"
+//		log.WithError(err).Error(msg)
+//		respondWithMessage(w, msg, http.StatusUnauthorized)
+//		return
+//	}
+//
+//	h.schemaHandler.GetSchema(w, r)
+//}
