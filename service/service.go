@@ -55,7 +55,6 @@ func (s *Service) PublishFromStore(ctx context.Context, uuid string) error {
 		}
 		s.l.WithError(err).Error("r/w to draft annotations failed")
 		return err
-
 	}
 	return s.notifierAPI.Publish(ctx, uuid, published)
 }

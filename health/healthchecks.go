@@ -13,16 +13,16 @@ type externalServiceChecker interface {
 	GTG() error
 }
 
-// service runs application health checks, and provides the /__health http endpoint
-type service struct {
+// Service runs application health checks, and provides the /__health http endpoint
+type Service struct {
 	fthealth.HealthCheck
 	publisher externalServiceChecker
 	draftsRW  externalServiceChecker
 }
 
 // NewHealthService returns a new HealthService
-func NewHealthService(appSystemCode string, appName string, appDescription string, publisher externalServiceChecker, draftsRW externalServiceChecker) *service {
-	service := &service{publisher: publisher, draftsRW: draftsRW}
+func NewHealthService(appSystemCode string, appName string, appDescription string, publisher externalServiceChecker, draftsRW externalServiceChecker) *Service {
+	service := &Service{publisher: publisher, draftsRW: draftsRW}
 	service.SystemCode = appSystemCode
 	service.Name = appName
 	service.Description = appDescription
@@ -34,7 +34,7 @@ func NewHealthService(appSystemCode string, appName string, appDescription strin
 }
 
 //nolint:all
-func (s *service) GTG() gtg.Status {
+func (s *Service) GTG() gtg.Status {
 	var checks []gtg.StatusChecker
 
 	for idx := range s.Checks {
@@ -51,11 +51,11 @@ func (s *service) GTG() gtg.Status {
 }
 
 // HealthCheckHandleFunc provides the http endpoint function
-func (s *service) HealthCheckHandleFunc() func(w http.ResponseWriter, r *http.Request) {
+func (s *Service) HealthCheckHandleFunc() func(w http.ResponseWriter, r *http.Request) {
 	return fthealth.Handler(s)
 }
 
-func (s *service) publishCheck() fthealth.Check {
+func (s *Service) publishCheck() fthealth.Check {
 	return fthealth.Check{
 		ID:               "check-annotations-publish-health",
 		BusinessImpact:   "Annotations Publishes to UPP may fail",
@@ -67,18 +67,18 @@ func (s *service) publishCheck() fthealth.Check {
 	}
 }
 
-func (s *service) publishHealthChecker() (string, error) {
+func (s *Service) publishHealthChecker() (string, error) {
 	if err := s.publisher.GTG(); err != nil {
 		return "UPP Publishing Pipeline is not healthy", err
 	}
 	return "UPP Publishing Pipeline is healthy", nil
 }
 
-func (s *service) draftsCheck() fthealth.Check {
+func (s *Service) draftsCheck() fthealth.Check {
 	return fthealth.Check{
 		ID:               "check-draft-annotations-health",
 		BusinessImpact:   "Annotations cannot be published to UPP",
-		Name:             "Check the PAC draft annotations api service",
+		Name:             "Check the PAC draft annotations api Service",
 		PanicGuide:       "https://dewey.ft.com/draft-annotations-api.html",
 		Severity:         1,
 		TechnicalSummary: fmt.Sprintf("Api for reading and saving draft annotations is not available at %v", s.draftsRW.Endpoint()),
@@ -86,7 +86,7 @@ func (s *service) draftsCheck() fthealth.Check {
 	}
 }
 
-func (s *service) draftsHealthChecker() (string, error) {
+func (s *Service) draftsHealthChecker() (string, error) {
 	if err := s.draftsRW.GTG(); err != nil {
 		return "PAC drafts annotations reader writer is not healthy", err
 	}
