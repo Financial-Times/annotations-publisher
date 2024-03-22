@@ -26,7 +26,7 @@ func Start(port int, apiYml *string, h *handler.Handler, healthService healthChe
 			r.HandleFunc("/drafts/content/{uuid}/annotations/publish", h.Publish).Methods(http.MethodPost)
 			r.HandleFunc("/validate", h.Validate).Methods(http.MethodPost)
 			r.HandleFunc("/schemas", h.ListSchemas).Methods(http.MethodGet)
-			//r.HandleFunc("/schemas/{schemaName}", handler.getSchema).Methods(http.MethodGet)
+			r.HandleFunc("/schemas/{schemaName}", h.GetSchema).Methods(http.MethodGet)
 
 			r.HandleFunc(status.BuildInfoPath, status.BuildInfoHandler)
 			r.HandleFunc(status.GTGPath, status.NewGoodToGoHandler(healthService.GTG))
