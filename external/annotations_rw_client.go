@@ -19,12 +19,6 @@ const (
 
 var ErrMissingOriginHeader = errors.New("X-Origin-System-Id header not found in context")
 
-//type Client interface {
-//	//health.ExternalService
-//	GetAnnotations(ctx context.Context, uuid string) (map[string]interface{}, string, error)
-//	SaveAnnotations(ctx context.Context, uuid string, hash string, data map[string]interface{}) (map[string]interface{}, string, error)
-//}
-
 type RWClient struct {
 	client      *http.Client
 	rwEndpoint  string

@@ -58,6 +58,7 @@ func (s *Service) PublishFromStore(ctx context.Context, uuid string) error {
 	}
 	return s.notifierAPI.Publish(ctx, uuid, published)
 }
+
 func isTimeoutErr(err error) bool {
 	netErr, ok := err.(net.Error)
 	return ok && netErr.Timeout()

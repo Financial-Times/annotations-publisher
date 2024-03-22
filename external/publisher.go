@@ -22,14 +22,6 @@ var (
 	ErrServiceTimeout = errors.New("downstream service timed out")
 )
 
-// Publisher provides an interface to publish annotations to UPP
-//type Publisher interface {
-//	health.ExternalService
-//	Publish(ctx context.Context, uuid string, body map[string]interface{}) error
-//	PublishFromStore(ctx context.Context, uuid string) error
-//	SaveAndPublish(ctx context.Context, uuid string, hash string, body map[string]interface{}) error
-//}
-
 type UppPublisher struct {
 	client          *http.Client
 	publishEndpoint string
@@ -115,48 +107,6 @@ func (a *UppPublisher) GTG() error {
 func (a *UppPublisher) Endpoint() string {
 	return a.publishEndpoint
 }
-
-//func (a *UppPublisher) PublishFromStore(ctx context.Context, published map[string]interface{}, uuid string) error {
-//	txid, _ := tid.GetTransactionIDFromContext(ctx)
-//
-//	var draft map[string]interface{}
-//	var hash string
-//	var published map[string]interface{}
-//	var err error
-//
-//	if draft, hash, err = a.draftAnnotationsClient.GetAnnotations(ctx, uuid); err == nil {
-//		published, _, err = a.draftAnnotationsClient.SaveAnnotations(ctx, uuid, hash, draft)
-//	}
-//
-//	if err != nil {
-//		if isTimeoutErr(err) {
-//			a.logger.WithTransactionID(txid).WithError(err).Error("r/w to draft annotations timed out ")
-//			return ErrServiceTimeout
-//		}
-//		a.logger.WithError(err).Error("r/w to draft annotations failed")
-//		return err
-//	}
-//
-//	err = a.Publish(ctx, uuid, published)
-//
-//	return err
-//}
-
-//func (a *UppPublisher) SaveAndPublish(ctx context.Context, uuid string, hash string, body map[string]interface{}) error {
-//	txid, _ := tid.GetTransactionIDFromContext(ctx)
-//	_, _, err := a.draftAnnotationsClient.SaveAnnotations(ctx, uuid, hash, body)
-//
-//	if err != nil {
-//		if isTimeoutErr(err) {
-//			a.logger.WithTransactionID(txid).WithError(err).Error("write to draft annotations timed out")
-//			return ErrServiceTimeout
-//		}
-//
-//		a.logger.WithError(err).Error("write to draft annotations failed")
-//		return err
-//	}
-//	return a.PublishFromStore(ctx, uuid)
-//}
 
 func isTimeoutErr(err error) bool {
 	netErr, ok := err.(net.Error)
