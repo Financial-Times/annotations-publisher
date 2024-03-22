@@ -1,4 +1,4 @@
-package external
+package draft
 
 import (
 	"bytes"
@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"strconv"
 
+	"github.com/Financial-Times/annotations-publisher/notifier"
 	"github.com/Financial-Times/go-logger/v2"
 )
 
@@ -19,51 +20,51 @@ const (
 
 var ErrMissingOriginHeader = errors.New("X-Origin-System-Id header not found in context")
 
-type RWClient struct {
+type API struct {
 	client      *http.Client
 	rwEndpoint  string
 	gtgEndpoint string
 	logger      *logger.UPPLogger
 }
 
-func NewAnnotationsClient(endpoint string, gtgEndpoint string, client *http.Client, logger *logger.UPPLogger) *RWClient {
-	r := &RWClient{client: client, rwEndpoint: endpoint, gtgEndpoint: gtgEndpoint, logger: logger}
+func NewAPI(endpoint string, gtgEndpoint string, client *http.Client, logger *logger.UPPLogger) *API {
+	r := &API{client: client, rwEndpoint: endpoint, gtgEndpoint: gtgEndpoint, logger: logger}
 	logger.WithField("endpoint", r.Endpoint()).Info("draft annotations r/w endpoint")
 
 	return r
 }
 
-func (rw *RWClient) GTG() error {
-	req, err := http.NewRequest("GET", rw.gtgEndpoint, nil)
+func (api *API) GTG() error {
+	req, err := http.NewRequest("GET", api.gtgEndpoint, nil)
 	if err != nil {
-		rw.logger.WithError(err).WithField("healthEndpoint", rw.gtgEndpoint).Error("Error in creating GTG request for generic-rw-aurora")
+		api.logger.WithError(err).WithField("healthEndpoint", api.gtgEndpoint).Error("Error in creating GTG request for generic-rw-aurora")
 		return err
 	}
-	resp, err := rw.client.Do(req)
+	resp, err := api.client.Do(req)
 	if err != nil {
-		rw.logger.WithError(err).WithField("healthEndpoint", rw.gtgEndpoint).Error("Error in GTG request for generic-rw-aurora")
+		api.logger.WithError(err).WithField("healthEndpoint", api.gtgEndpoint).Error("Error in GTG request for generic-rw-aurora")
 		return err
 	}
 
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		rw.logger.WithField("healthEndpoint", rw.gtgEndpoint).
+		api.logger.WithField("healthEndpoint", api.gtgEndpoint).
 			WithField("status", resp.StatusCode).
 			Error("GTG for generic-rw-aurora returned a non-200 HTTP status")
 
-		return fmt.Errorf("GTG %v returned a %v status code for generic-rw-aurora", rw.gtgEndpoint, resp.StatusCode)
+		return fmt.Errorf("GTG %v returned a %v status code for generic-rw-aurora", api.gtgEndpoint, resp.StatusCode)
 	}
 
 	return nil
 }
 
-func (rw *RWClient) Endpoint() string {
-	return rw.rwEndpoint
+func (api *API) Endpoint() string {
+	return api.rwEndpoint
 }
 
-func (rw *RWClient) GetAnnotations(ctx context.Context, uuid string) (map[string]interface{}, string, error) {
-	draftsURL := fmt.Sprintf(rw.rwEndpoint, uuid)
+func (api *API) GetAnnotations(ctx context.Context, uuid string) (map[string]interface{}, string, error) {
+	draftsURL := fmt.Sprintf(api.rwEndpoint, uuid)
 	req, err := http.NewRequest("GET", draftsURL, nil)
 	if err != nil {
 		return map[string]interface{}{}, "", err
@@ -74,7 +75,7 @@ func (rw *RWClient) GetAnnotations(ctx context.Context, uuid string) (map[string
 	q.Add("sendHasBrand", strconv.FormatBool(true))
 	req.URL.RawQuery = q.Encode()
 
-	headerToAssert := ctx.Value(CtxOriginSystemIDKey(OriginSystemIDHeader))
+	headerToAssert := ctx.Value(notifier.CtxOriginSystemIDKey(notifier.OriginSystemIDHeader))
 	originHeader, ok := headerToAssert.(string)
 	if !ok {
 		return map[string]interface{}{}, "", ErrMissingOriginHeader
@@ -82,7 +83,7 @@ func (rw *RWClient) GetAnnotations(ctx context.Context, uuid string) (map[string
 	req.Header.Set("X-Origin-System-Id", originHeader)
 	req.Header.Set("Accept", "application/json")
 
-	resp, err := rw.client.Do(req.WithContext(ctx))
+	resp, err := api.client.Do(req.WithContext(ctx))
 	if err != nil {
 		return map[string]interface{}{}, "", err
 	}
@@ -90,7 +91,7 @@ func (rw *RWClient) GetAnnotations(ctx context.Context, uuid string) (map[string
 	defer resp.Body.Close()
 
 	if resp.StatusCode == http.StatusNotFound {
-		return map[string]interface{}{}, "", ErrDraftNotFound
+		return map[string]interface{}{}, "", notifier.ErrDraftNotFound
 	}
 
 	if resp.StatusCode != http.StatusOK {
@@ -104,8 +105,8 @@ func (rw *RWClient) GetAnnotations(ctx context.Context, uuid string) (map[string
 	return ann, hash, err
 }
 
-func (rw *RWClient) SaveAnnotations(ctx context.Context, uuid string, hash string, data map[string]interface{}) (map[string]interface{}, string, error) {
-	draftsURL := fmt.Sprintf(rw.rwEndpoint, uuid)
+func (api *API) SaveAnnotations(ctx context.Context, uuid string, hash string, data map[string]interface{}) (map[string]interface{}, string, error) {
+	draftsURL := fmt.Sprintf(api.rwEndpoint, uuid)
 	body, err := json.Marshal(data)
 	if err != nil {
 		return map[string]interface{}{}, "", err
@@ -115,7 +116,7 @@ func (rw *RWClient) SaveAnnotations(ctx context.Context, uuid string, hash strin
 		return map[string]interface{}{}, "", err
 	}
 
-	headerToAssert := ctx.Value(CtxOriginSystemIDKey(OriginSystemIDHeader))
+	headerToAssert := ctx.Value(notifier.CtxOriginSystemIDKey(notifier.OriginSystemIDHeader))
 	originHeader, ok := headerToAssert.(string)
 	if !ok {
 		return map[string]interface{}{}, "", ErrMissingOriginHeader
@@ -124,7 +125,7 @@ func (rw *RWClient) SaveAnnotations(ctx context.Context, uuid string, hash strin
 	req.Header.Set(PreviousDocumentHashHeader, hash)
 	req.Header.Set("Accept", "application/json")
 
-	resp, err := rw.client.Do(req.WithContext(ctx))
+	resp, err := api.client.Do(req.WithContext(ctx))
 	if err != nil {
 		return map[string]interface{}{}, "", err
 	}

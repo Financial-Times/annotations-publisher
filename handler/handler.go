@@ -10,33 +10,34 @@ import (
 	"strings"
 	"time"
 
-	"github.com/Financial-Times/annotations-publisher/external"
+	"github.com/Financial-Times/annotations-publisher/draft"
+	"github.com/Financial-Times/annotations-publisher/notifier"
 	"github.com/Financial-Times/go-logger/v2"
 	tid "github.com/Financial-Times/transactionid-utils-go"
 	"github.com/gorilla/mux"
 	log "github.com/sirupsen/logrus"
 )
 
-type JSONValidator interface {
+type jsonValidator interface {
 	Validate(interface{}) error
 }
-type SchemaHandler interface {
+type schemaHandler interface {
 	ListSchemas(w http.ResponseWriter, r *http.Request)
 	GetSchema(w http.ResponseWriter, r *http.Request)
 }
-type Handler struct {
-	logger    *logger.UPPLogger
-	publisher publisher
-	jv        JSONValidator
-	sh        SchemaHandler
-}
-
 type publisher interface {
 	PublishFromStore(ctx context.Context, uuid string) error
 	SaveAndPublish(ctx context.Context, uuid string, hash string, body map[string]interface{}) error
 }
 
-func NewHandler(l *logger.UPPLogger, p publisher, jv JSONValidator, sh SchemaHandler) *Handler {
+type Handler struct {
+	logger    *logger.UPPLogger
+	publisher publisher
+	jv        jsonValidator
+	sh        schemaHandler
+}
+
+func NewHandler(l *logger.UPPLogger, p publisher, jv jsonValidator, sh schemaHandler) *Handler {
 	return &Handler{
 		logger:    l,
 		publisher: p,
@@ -50,12 +51,12 @@ func (h *Handler) Publish(w http.ResponseWriter, r *http.Request) {
 	ctx, cancel := context.WithTimeout(tid.TransactionAwareContext(context.Background(), txid), 10*time.Second)
 	defer cancel()
 
-	origin := r.Header.Get(external.OriginSystemIDHeader)
+	origin := r.Header.Get(notifier.OriginSystemIDHeader)
 	if origin == "" {
 		writeMsg(w, http.StatusBadRequest, "Invalid request: X-Origin-System-Id header missing")
 		return
 	}
-	ctx = context.WithValue(ctx, external.CtxOriginSystemIDKey(external.OriginSystemIDHeader), origin)
+	ctx = context.WithValue(ctx, notifier.CtxOriginSystemIDKey(notifier.OriginSystemIDHeader), origin)
 
 	vars := mux.Vars(r)
 	uuid := vars["uuid"]
@@ -65,7 +66,7 @@ func (h *Handler) Publish(w http.ResponseWriter, r *http.Request) {
 	}
 
 	fromStore, _ := strconv.ParseBool(r.URL.Query().Get("fromStore"))
-	hash := r.Header.Get(external.PreviousDocumentHashHeader)
+	hash := r.Header.Get(draft.PreviousDocumentHashHeader)
 	h.logger.WithFields(log.Fields{"transaction_id": txid, "uuid": uuid, "fromStore": fromStore}).Info("publish")
 
 	bodyBytes, err := io.ReadAll(r.Body)
@@ -87,9 +88,9 @@ func (h *Handler) Publish(w http.ResponseWriter, r *http.Request) {
 		err = h.publisher.PublishFromStore(ctx, uuid)
 		if err == nil {
 			writeMsg(w, http.StatusAccepted, "Publish accepted")
-		} else if errors.Is(err, external.ErrServiceTimeout) {
+		} else if errors.Is(err, notifier.ErrServiceTimeout) {
 			writeMsg(w, http.StatusGatewayTimeout, err.Error())
-		} else if errors.Is(err, external.ErrDraftNotFound) {
+		} else if errors.Is(err, notifier.ErrDraftNotFound) {
 			writeMsg(w, http.StatusNotFound, err.Error())
 		} else {
 			h.logger.WithTransactionID(txid).WithError(err).Error("Unable to publish annotations from store")
@@ -114,11 +115,11 @@ func (h *Handler) Publish(w http.ResponseWriter, r *http.Request) {
 	}
 
 	err = h.publisher.SaveAndPublish(ctx, uuid, hash, body)
-	if errors.Is(err, external.ErrServiceTimeout) {
+	if errors.Is(err, notifier.ErrServiceTimeout) {
 		writeMsg(w, http.StatusGatewayTimeout, err.Error())
 		return
 	}
-	if errors.Is(err, external.ErrDraftNotFound) {
+	if errors.Is(err, notifier.ErrDraftNotFound) {
 		writeMsg(w, http.StatusNotFound, err.Error())
 		return
 	}

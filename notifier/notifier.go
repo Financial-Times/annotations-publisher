@@ -1,4 +1,4 @@
-package external
+package notifier
 
 import (
 	"bytes"
@@ -22,18 +22,18 @@ var (
 	ErrServiceTimeout = errors.New("downstream service timed out")
 )
 
-type UppPublisher struct {
+type API struct {
 	client          *http.Client
 	publishEndpoint string
 	gtgEndpoint     string
 	logger          *logger.UPPLogger
 }
 
-// NewPublisher returns a new Publisher instance
-func NewPublisher(publishEndpoint string, gtgEndpoint string, client *http.Client, logger *logger.UPPLogger) *UppPublisher {
+// NewAPI returns a new Publisher instance
+func NewAPI(publishEndpoint string, gtgEndpoint string, client *http.Client, logger *logger.UPPLogger) *API {
 	logger.WithField("endpoint", publishEndpoint).Info("publish endpoint")
 
-	return &UppPublisher{
+	return &API{
 		client:          client,
 		publishEndpoint: publishEndpoint,
 		gtgEndpoint:     gtgEndpoint,
@@ -42,7 +42,7 @@ func NewPublisher(publishEndpoint string, gtgEndpoint string, client *http.Clien
 }
 
 // Publish sends the annotations to UPP via the configured publishEndpoint. Requests contain X-Origin-System-Id and X-Request-Id and a User-Agent as provided.
-func (a *UppPublisher) Publish(ctx context.Context, uuid string, body map[string]interface{}) error {
+func (a *API) Publish(ctx context.Context, uuid string, body map[string]interface{}) error {
 	txid, _ := tid.GetTransactionIDFromContext(ctx)
 
 	body["uuid"] = uuid
@@ -78,7 +78,7 @@ func (a *UppPublisher) Publish(ctx context.Context, uuid string, body map[string
 }
 
 // GTG performs a health check against the UPP cms-metadata-notifier service
-func (a *UppPublisher) GTG() error {
+func (a *API) GTG() error {
 	req, err := http.NewRequest("GET", a.gtgEndpoint, nil)
 	if err != nil {
 		a.logger.WithError(err).WithField("healthEndpoint", a.gtgEndpoint).Error("Error in creating GTG request for UPP cms-metadata-notifier service")
@@ -104,7 +104,7 @@ func (a *UppPublisher) GTG() error {
 }
 
 // Endpoint returns the configured publish endpoint
-func (a *UppPublisher) Endpoint() string {
+func (a *API) Endpoint() string {
 	return a.publishEndpoint
 }
 

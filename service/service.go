@@ -4,18 +4,19 @@ import (
 	"context"
 	"net"
 
-	"github.com/Financial-Times/annotations-publisher/external"
+	"github.com/Financial-Times/annotations-publisher/draft"
+	"github.com/Financial-Times/annotations-publisher/notifier"
 	"github.com/Financial-Times/go-logger/v2"
 	tid "github.com/Financial-Times/transactionid-utils-go"
 )
 
 type Service struct {
 	l           *logger.UPPLogger
-	draftAPI    *external.RWClient
-	notifierAPI *external.UppPublisher
+	draftAPI    *draft.API
+	notifierAPI *notifier.API
 }
 
-func NewPublisher(l *logger.UPPLogger, draftAPI *external.RWClient, notifierAPI *external.UppPublisher) *Service {
+func NewPublisher(l *logger.UPPLogger, draftAPI *draft.API, notifierAPI *notifier.API) *Service {
 	return &Service{l: l, draftAPI: draftAPI, notifierAPI: notifierAPI}
 }
 
@@ -26,7 +27,7 @@ func (s *Service) SaveAndPublish(ctx context.Context, uuid string, hash string, 
 	if err != nil {
 		if isTimeoutErr(err) {
 			s.l.WithTransactionID(txid).WithError(err).Error("write to draft annotations timed out")
-			return external.ErrServiceTimeout
+			return notifier.ErrServiceTimeout
 		}
 
 		s.l.WithError(err).Error("write to draft annotations failed")
@@ -50,7 +51,7 @@ func (s *Service) PublishFromStore(ctx context.Context, uuid string) error {
 	if err != nil {
 		if isTimeoutErr(err) {
 			s.l.WithTransactionID(txid).WithError(err).Error("r/w to draft annotations timed out ")
-			return external.ErrServiceTimeout
+			return notifier.ErrServiceTimeout
 		}
 		s.l.WithError(err).Error("r/w to draft annotations failed")
 		return err

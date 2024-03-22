@@ -7,9 +7,10 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/Financial-Times/annotations-publisher/external"
+	"github.com/Financial-Times/annotations-publisher/draft"
 	"github.com/Financial-Times/annotations-publisher/handler"
 	"github.com/Financial-Times/annotations-publisher/health"
+	"github.com/Financial-Times/annotations-publisher/notifier"
 	"github.com/Financial-Times/annotations-publisher/service"
 	"github.com/Financial-Times/api-endpoint"
 	"github.com/Financial-Times/cm-annotations-ontology/validator"
@@ -112,8 +113,8 @@ func main() {
 
 		httpClient := fthttp.NewClient(timeout, "PAC", *appSystemCode)
 
-		draftAnnotationsAPI := external.NewAnnotationsClient(*draftsEndpoint, *draftsGTGEndpoint, httpClient, logger)
-		notifierAPI := external.NewPublisher(*metadataNotifier, *metadataNotifierGTGEndpoint, httpClient, logger)
+		draftAnnotationsAPI := draft.NewAPI(*draftsEndpoint, *draftsGTGEndpoint, httpClient, logger)
+		notifierAPI := notifier.NewAPI(*metadataNotifier, *metadataNotifierGTGEndpoint, httpClient, logger)
 
 		publisher := service.NewPublisher(logger, draftAnnotationsAPI, notifierAPI)
 
@@ -124,10 +125,12 @@ func main() {
 		v := validator.NewSchemaValidator(logger)
 		jv := v.GetJSONValidator()
 		sh := v.GetSchemaHandler()
+
 		h := handler.NewHandler(logger, publisher, jv, sh)
+
 		healthService := health.NewHealthService(*appSystemCode, *appName, appDescription, notifierAPI, draftAnnotationsAPI)
 
-		serveEndpoints(*port, apiYml, h, healthService, timeout, logger)
+		serveEndpoints(*port, apiYml, h, healthService, logger)
 	}
 
 	err := app.Run(os.Args)
@@ -137,19 +140,12 @@ func main() {
 	}
 }
 
-//	type Publisher interface {
-//		health.ExternalService
-//		Publish(ctx context.Context, uuid string, body map[string]interface{}) error
-//		PublishFromStore(ctx context.Context, uuid string) error
-//		SaveAndPublish(ctx context.Context, uuid string, hash string, body map[string]interface{}) error
-//	}
-
 type healthChecker interface {
 	GTG() gtg.Status
 	HealthCheckHandleFunc() func(w http.ResponseWriter, r *http.Request)
 }
 
-func serveEndpoints(port int, apiYml *string, h *handler.Handler, healthService healthChecker, timeout time.Duration, logger *l.UPPLogger) {
+func serveEndpoints(port int, apiYml *string, h *handler.Handler, healthService healthChecker, logger *l.UPPLogger) {
 	srv := server.New(
 		func(r *mux.Router) {
 			r.HandleFunc("/drafts/content/{uuid}/annotations/publish", h.Publish).Methods(http.MethodPost)
