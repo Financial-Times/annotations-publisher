@@ -7,13 +7,14 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/Financial-Times/annotations-publisher/annotations"
+	"github.com/Financial-Times/annotations-publisher/external"
+	"github.com/Financial-Times/annotations-publisher/handler"
 	"github.com/Financial-Times/annotations-publisher/health"
-	"github.com/Financial-Times/annotations-publisher/resources"
 	"github.com/Financial-Times/api-endpoint"
 	"github.com/Financial-Times/cm-annotations-ontology/validator"
 	"github.com/Financial-Times/go-ft-http/fthttp"
 	l "github.com/Financial-Times/go-logger/v2"
+	"github.com/Financial-Times/service-status-go/gtg"
 	status "github.com/Financial-Times/service-status-go/httphandlers"
 	"github.com/Financial-Times/upp-go-sdk/pkg/server"
 	"github.com/gorilla/mux"
@@ -56,18 +57,18 @@ func main() {
 		EnvVar: "DRAFT_ANNOTATIONS_RW_ENDPOINT",
 	})
 
-	annotationsEndpoint := app.String(cli.StringOpt{
-		Name:   "annotations-publish-endpoint",
+	metadataNotifier := app.String(cli.StringOpt{
+		Name:   "metadata-notifier-endpoint",
 		Value:  "http://cms-metadata-notifier:8080/notify",
 		Desc:   "Endpoint to publish annotations to UPP",
-		EnvVar: "ANNOTATIONS_PUBLISH_ENDPOINT",
+		EnvVar: "METADATA_NOTIFIER_ENDPOINT",
 	})
 
-	annotationsGTGEndpoint := app.String(cli.StringOpt{
-		Name:   "annotations-publish-gtg-endpoint",
+	metadataNotifierGTGEndpoint := app.String(cli.StringOpt{
+		Name:   "metadata-notifier-gtg-endpoint",
 		Value:  "http://cms-metadata-notifier:8080/__gtg",
 		Desc:   "GTG Endpoint for publishing annotations to UPP",
-		EnvVar: "ANNOTATIONS_PUBLISH_GTG_ENDPOINT",
+		EnvVar: "METADATA_NOTIFIER_GTG_ENDPOINT",
 	})
 
 	apiYml := app.String(cli.StringOpt{
@@ -103,7 +104,7 @@ func main() {
 
 		httpClient := fthttp.NewClient(timeout, "PAC", *appSystemCode)
 
-		draftAnnotationsRW, err := annotations.NewAnnotationsClient(*draftsEndpoint, httpClient, logger)
+		draftAnnotationsRW, err := external.NewAnnotationsClient(*draftsEndpoint, httpClient, logger)
 		if err != nil {
 			logger.WithError(err).Fatal("Failed to create new draft annotations writer.")
 		}
@@ -113,11 +114,12 @@ func main() {
 
 		v := validator.NewSchemaValidator(logger)
 		jv := v.GetJSONValidator()
-
-		publisher := annotations.NewPublisher(draftAnnotationsRW, *annotationsEndpoint, *annotationsGTGEndpoint, httpClient, logger)
+		sh := v.GetSchemaHandler()
+		publisher := external.NewPublisher(draftAnnotationsRW, *metadataNotifier, *metadataNotifierGTGEndpoint, httpClient, logger)
+		h := handler.NewHandler(logger, publisher, draftAnnotationsRW, jv, sh)
 		healthService := health.NewHealthService(*appSystemCode, *appName, appDescription, publisher, draftAnnotationsRW)
 
-		serveEndpoints(*port, apiYml, publisher, jv, healthService, timeout, logger)
+		serveEndpoints(*port, apiYml, h, healthService, timeout, logger)
 	}
 
 	err := app.Run(os.Args)
@@ -127,10 +129,22 @@ func main() {
 	}
 }
 
-func serveEndpoints(port int, apiYml *string, publisher annotations.Publisher, jv resources.JSONValidator, healthService *health.Service, timeout time.Duration, logger *l.UPPLogger) {
+//	type Publisher interface {
+//		health.ExternalService
+//		Publish(ctx context.Context, uuid string, body map[string]interface{}) error
+//		PublishFromStore(ctx context.Context, uuid string) error
+//		SaveAndPublish(ctx context.Context, uuid string, hash string, body map[string]interface{}) error
+//	}
+
+type healthChecker interface {
+	GTG() gtg.Status
+	HealthCheckHandleFunc() func(w http.ResponseWriter, r *http.Request)
+}
+
+func serveEndpoints(port int, apiYml *string, h *handler.Handler, healthService healthChecker, timeout time.Duration, logger *l.UPPLogger) {
 	srv := server.New(
 		func(r *mux.Router) {
-			r.HandleFunc("/drafts/content/{uuid}/annotations/publish", resources.Publish(publisher, jv, timeout, logger)).Methods(http.MethodPost)
+			r.HandleFunc("/drafts/content/{uuid}/annotations/publish", h.Publish).Methods(http.MethodPost)
 			r.HandleFunc(status.BuildInfoPath, status.BuildInfoHandler)
 			r.HandleFunc(status.GTGPath, status.NewGoodToGoHandler(healthService.GTG))
 

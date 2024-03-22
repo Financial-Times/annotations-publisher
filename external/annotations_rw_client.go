@@ -1,4 +1,4 @@
-package annotations
+package external
 
 import (
 	"bytes"
@@ -10,7 +10,6 @@ import (
 	"net/url"
 	"strconv"
 
-	"github.com/Financial-Times/annotations-publisher/health"
 	"github.com/Financial-Times/go-logger/v2"
 	status "github.com/Financial-Times/service-status-go/httphandlers"
 )
@@ -22,20 +21,20 @@ const (
 
 var ErrMissingOriginHeader = errors.New("X-Origin-System-Id header not found in context")
 
-type Client interface {
-	health.ExternalService
-	GetAnnotations(ctx context.Context, uuid string) (map[string]interface{}, string, error)
-	SaveAnnotations(ctx context.Context, uuid string, hash string, data map[string]interface{}) (map[string]interface{}, string, error)
-}
+//type Client interface {
+//	//health.ExternalService
+//	GetAnnotations(ctx context.Context, uuid string) (map[string]interface{}, string, error)
+//	SaveAnnotations(ctx context.Context, uuid string, hash string, data map[string]interface{}) (map[string]interface{}, string, error)
+//}
 
-type genericRWClient struct {
+type RWClient struct {
 	client      *http.Client
 	rwEndpoint  string
 	gtgEndpoint string
 	logger      *logger.UPPLogger
 }
 
-func NewAnnotationsClient(endpoint string, client *http.Client, logger *logger.UPPLogger) (Client, error) {
+func NewAnnotationsClient(endpoint string, client *http.Client, logger *logger.UPPLogger) (*RWClient, error) {
 	v, err := url.Parse(fmt.Sprintf(endpoint, "dummy"))
 	if err != nil {
 		return nil, err
@@ -44,10 +43,10 @@ func NewAnnotationsClient(endpoint string, client *http.Client, logger *logger.U
 	gtg, _ := url.Parse(status.GTGPath)
 	gtgURL := v.ResolveReference(gtg)
 
-	return &genericRWClient{client: client, rwEndpoint: endpoint, gtgEndpoint: gtgURL.String(), logger: logger}, nil
+	return &RWClient{client: client, rwEndpoint: endpoint, gtgEndpoint: gtgURL.String(), logger: logger}, nil
 }
 
-func (rw *genericRWClient) GTG() error {
+func (rw *RWClient) GTG() error {
 	req, err := http.NewRequest("GET", rw.gtgEndpoint, nil)
 	if err != nil {
 		rw.logger.WithError(err).WithField("healthEndpoint", rw.gtgEndpoint).Error("Error in creating GTG request for generic-rw-aurora")
@@ -72,11 +71,11 @@ func (rw *genericRWClient) GTG() error {
 	return nil
 }
 
-func (rw *genericRWClient) Endpoint() string {
+func (rw *RWClient) Endpoint() string {
 	return rw.rwEndpoint
 }
 
-func (rw *genericRWClient) GetAnnotations(ctx context.Context, uuid string) (map[string]interface{}, string, error) {
+func (rw *RWClient) GetAnnotations(ctx context.Context, uuid string) (map[string]interface{}, string, error) {
 	draftsURL := fmt.Sprintf(rw.rwEndpoint, uuid)
 	req, err := http.NewRequest("GET", draftsURL, nil)
 	if err != nil {
@@ -118,7 +117,7 @@ func (rw *genericRWClient) GetAnnotations(ctx context.Context, uuid string) (map
 	return ann, hash, err
 }
 
-func (rw *genericRWClient) SaveAnnotations(ctx context.Context, uuid string, hash string, data map[string]interface{}) (map[string]interface{}, string, error) {
+func (rw *RWClient) SaveAnnotations(ctx context.Context, uuid string, hash string, data map[string]interface{}) (map[string]interface{}, string, error) {
 	draftsURL := fmt.Sprintf(rw.rwEndpoint, uuid)
 	body, err := json.Marshal(data)
 	if err != nil {

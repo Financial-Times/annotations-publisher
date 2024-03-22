@@ -12,7 +12,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/Financial-Times/annotations-publisher/annotations"
+	"github.com/Financial-Times/annotations-publisher/external"
 	"github.com/Financial-Times/cm-annotations-ontology/validator"
 	"github.com/Financial-Times/go-logger/v2"
 	"github.com/husobee/vestigo"
@@ -78,8 +78,8 @@ func TestPublish(t *testing.T) {
 
 	w := httptest.NewRecorder()
 	req := httptest.NewRequest("POST", "/drafts/content/a-valid-uuid/annotations/publish", strings.NewReader(testPublishBody))
-	req.Header.Add(annotations.PreviousDocumentHashHeader, "hash")
-	req.Header.Add(annotations.OriginSystemIDHeader, "originSystemId")
+	req.Header.Add(external.PreviousDocumentHashHeader, "hash")
+	req.Header.Add(external.OriginSystemIDHeader, "originSystemId")
 
 	r.ServeHTTP(w, req)
 
@@ -103,8 +103,8 @@ func TestPublishInvalidSchema(t *testing.T) {
 
 	w := httptest.NewRecorder()
 	req := httptest.NewRequest("POST", "/drafts/content/a-valid-uuid/annotations/publish", strings.NewReader(testInvalidPublishBody))
-	req.Header.Add(annotations.PreviousDocumentHashHeader, "hash")
-	req.Header.Add(annotations.OriginSystemIDHeader, "originSystemId")
+	req.Header.Add(external.PreviousDocumentHashHeader, "hash")
+	req.Header.Add(external.OriginSystemIDHeader, "originSystemId")
 
 	r.ServeHTTP(w, req)
 	resp, err := marshal(w.Body)
@@ -130,7 +130,7 @@ func TestBodyNotJSON(t *testing.T) {
 
 	w := httptest.NewRecorder()
 	req := httptest.NewRequest("POST", "/drafts/content/a-valid-uuid/annotations/publish", strings.NewReader(`{\`))
-	req.Header.Add(annotations.OriginSystemIDHeader, "originSystemId")
+	req.Header.Add(external.OriginSystemIDHeader, "originSystemId")
 
 	r.ServeHTTP(w, req)
 
@@ -145,7 +145,7 @@ func TestBodyNotJSON(t *testing.T) {
 func TestPublishNotFound(t *testing.T) {
 	r := vestigo.NewRouter()
 	pub := &mockPublisher{}
-	pub.On("SaveAndPublish", mock.Anything, "a-valid-uuid", "hash", mock.Anything).Return(annotations.ErrDraftNotFound)
+	pub.On("SaveAndPublish", mock.Anything, "a-valid-uuid", "hash", mock.Anything).Return(external.ErrDraftNotFound)
 	testLog := logger.NewUPPLogger("test", "debug")
 
 	os.Setenv("JSON_SCHEMAS_PATH", "../schemas")
@@ -158,15 +158,15 @@ func TestPublishNotFound(t *testing.T) {
 
 	w := httptest.NewRecorder()
 	req := httptest.NewRequest("POST", "/drafts/content/a-valid-uuid/annotations/publish", strings.NewReader(testPublishBody))
-	req.Header.Add(annotations.PreviousDocumentHashHeader, "hash")
-	req.Header.Add(annotations.OriginSystemIDHeader, "originSystemId")
+	req.Header.Add(external.PreviousDocumentHashHeader, "hash")
+	req.Header.Add(external.OriginSystemIDHeader, "originSystemId")
 
 	r.ServeHTTP(w, req)
 
 	resp, err := marshal(w.Body)
 	require.NoError(t, err)
 	assert.Equal(t, http.StatusNotFound, w.Code)
-	assert.Equal(t, annotations.ErrDraftNotFound.Error(), strings.ToLower(resp["message"].(string)))
+	assert.Equal(t, external.ErrDraftNotFound.Error(), strings.ToLower(resp["message"].(string)))
 
 	pub.AssertExpectations(t)
 }
@@ -174,7 +174,7 @@ func TestPublishNotFound(t *testing.T) {
 func TestPublishTimedout(t *testing.T) {
 	r := vestigo.NewRouter()
 	pub := &mockPublisher{}
-	pub.On("SaveAndPublish", mock.Anything, "a-valid-uuid", "hash", mock.Anything).Return(annotations.ErrServiceTimeout)
+	pub.On("SaveAndPublish", mock.Anything, "a-valid-uuid", "hash", mock.Anything).Return(external.ErrServiceTimeout)
 	testLog := logger.NewUPPLogger("test", "debug")
 
 	os.Setenv("JSON_SCHEMAS_PATH", "../schemas")
@@ -187,15 +187,15 @@ func TestPublishTimedout(t *testing.T) {
 
 	w := httptest.NewRecorder()
 	req := httptest.NewRequest("POST", "/drafts/content/a-valid-uuid/annotations/publish", strings.NewReader(testPublishBody))
-	req.Header.Add(annotations.PreviousDocumentHashHeader, "hash")
-	req.Header.Add(annotations.OriginSystemIDHeader, "originSystemId")
+	req.Header.Add(external.PreviousDocumentHashHeader, "hash")
+	req.Header.Add(external.OriginSystemIDHeader, "originSystemId")
 
 	r.ServeHTTP(w, req)
 
 	resp, err := marshal(w.Body)
 	require.NoError(t, err)
 	assert.Equal(t, http.StatusGatewayTimeout, w.Code)
-	assert.Equal(t, annotations.ErrServiceTimeout.Error(), strings.ToLower(resp["message"].(string)))
+	assert.Equal(t, external.ErrServiceTimeout.Error(), strings.ToLower(resp["message"].(string)))
 
 	pub.AssertExpectations(t)
 }
@@ -215,8 +215,8 @@ func TestPublishMissingBody(t *testing.T) {
 
 	w := httptest.NewRecorder()
 	req := httptest.NewRequest("POST", "/drafts/content/a-valid-uuid/annotations/publish", nil)
-	req.Header.Add(annotations.PreviousDocumentHashHeader, "hash")
-	req.Header.Add(annotations.OriginSystemIDHeader, "originSystemId")
+	req.Header.Add(external.PreviousDocumentHashHeader, "hash")
+	req.Header.Add(external.OriginSystemIDHeader, "originSystemId")
 
 	r.ServeHTTP(w, req)
 
@@ -249,8 +249,8 @@ func TestPublishBodyReadFail(t *testing.T) {
 	w := httptest.NewRecorder()
 	req := httptest.NewRequest("POST", "/drafts/content/a-valid-uuid/annotations/publish", &failingReader{err: errors.New("failed to read request body. Please provide a valid json request body")})
 
-	req.Header.Add(annotations.PreviousDocumentHashHeader, "hash")
-	req.Header.Add(annotations.OriginSystemIDHeader, "originSystemId")
+	req.Header.Add(external.PreviousDocumentHashHeader, "hash")
+	req.Header.Add(external.OriginSystemIDHeader, "originSystemId")
 
 	r.ServeHTTP(w, req)
 	resp, err := marshal(w.Body)
@@ -278,7 +278,7 @@ func TestPublishNoHashHeader(t *testing.T) {
 
 	w := httptest.NewRecorder()
 	req := httptest.NewRequest("POST", "/drafts/content/a-valid-uuid/annotations/publish", strings.NewReader(testPublishBody))
-	req.Header.Add(annotations.OriginSystemIDHeader, "originSystemId")
+	req.Header.Add(external.OriginSystemIDHeader, "originSystemId")
 
 	r.ServeHTTP(w, req)
 
@@ -302,7 +302,7 @@ func TestRequestHasNoUUID(t *testing.T) {
 
 	w := httptest.NewRecorder()
 	req := httptest.NewRequest("POST", "/drafts/content//annotations/publish", strings.NewReader(`{}`))
-	req.Header.Add(annotations.OriginSystemIDHeader, "originSystemId")
+	req.Header.Add(external.OriginSystemIDHeader, "originSystemId")
 
 	r.ServeHTTP(w, req)
 
@@ -330,8 +330,8 @@ func TestPublishFailed(t *testing.T) {
 
 	w := httptest.NewRecorder()
 	req := httptest.NewRequest("POST", "/drafts/content/a-valid-uuid/annotations/publish", strings.NewReader(testPublishBody))
-	req.Header.Add(annotations.PreviousDocumentHashHeader, "hash")
-	req.Header.Add(annotations.OriginSystemIDHeader, "originSystemId")
+	req.Header.Add(external.PreviousDocumentHashHeader, "hash")
+	req.Header.Add(external.OriginSystemIDHeader, "originSystemId")
 
 	r.ServeHTTP(w, req)
 
@@ -359,7 +359,7 @@ func TestPublishFromStore(t *testing.T) {
 
 	w := httptest.NewRecorder()
 	req := httptest.NewRequest("POST", "/drafts/content/a-valid-uuid/annotations/publish?fromStore=true", nil)
-	req.Header.Add(annotations.OriginSystemIDHeader, "originSystemId")
+	req.Header.Add(external.OriginSystemIDHeader, "originSystemId")
 
 	r.ServeHTTP(w, req)
 
@@ -374,7 +374,7 @@ func TestPublishFromStore(t *testing.T) {
 func TestPublishFromStoreNotFound(t *testing.T) {
 	r := vestigo.NewRouter()
 	pub := &mockPublisher{}
-	pub.On("PublishFromStore", mock.Anything, "a-valid-uuid").Return(annotations.ErrDraftNotFound)
+	pub.On("PublishFromStore", mock.Anything, "a-valid-uuid").Return(external.ErrDraftNotFound)
 	testLog := logger.NewUPPLogger("test", "debug")
 
 	os.Setenv("JSON_SCHEMAS_PATH", "../schemas")
@@ -387,14 +387,14 @@ func TestPublishFromStoreNotFound(t *testing.T) {
 
 	w := httptest.NewRecorder()
 	req := httptest.NewRequest("POST", "/drafts/content/a-valid-uuid/annotations/publish?fromStore=true", nil)
-	req.Header.Add(annotations.OriginSystemIDHeader, "originSystemId")
+	req.Header.Add(external.OriginSystemIDHeader, "originSystemId")
 
 	r.ServeHTTP(w, req)
 
 	resp, err := marshal(w.Body)
 	require.NoError(t, err)
 	assert.Equal(t, http.StatusNotFound, w.Code)
-	assert.Equal(t, annotations.ErrDraftNotFound.Error(), strings.ToLower(resp["message"].(string)))
+	assert.Equal(t, external.ErrDraftNotFound.Error(), strings.ToLower(resp["message"].(string)))
 
 	pub.AssertExpectations(t)
 }
@@ -402,7 +402,7 @@ func TestPublishFromStoreNotFound(t *testing.T) {
 func TestPublishFromStoreTimeout(t *testing.T) {
 	r := vestigo.NewRouter()
 	pub := &mockPublisher{}
-	pub.On("PublishFromStore", mock.Anything, "a-valid-uuid").Return(annotations.ErrServiceTimeout)
+	pub.On("PublishFromStore", mock.Anything, "a-valid-uuid").Return(external.ErrServiceTimeout)
 	testLog := logger.NewUPPLogger("test", "debug")
 
 	os.Setenv("JSON_SCHEMAS_PATH", "../schemas")
@@ -415,14 +415,14 @@ func TestPublishFromStoreTimeout(t *testing.T) {
 
 	w := httptest.NewRecorder()
 	req := httptest.NewRequest("POST", "/drafts/content/a-valid-uuid/annotations/publish?fromStore=true", nil)
-	req.Header.Add(annotations.OriginSystemIDHeader, "originSystemId")
+	req.Header.Add(external.OriginSystemIDHeader, "originSystemId")
 
 	r.ServeHTTP(w, req)
 
 	resp, err := marshal(w.Body)
 	require.NoError(t, err)
 	assert.Equal(t, http.StatusGatewayTimeout, w.Code)
-	assert.Equal(t, annotations.ErrServiceTimeout.Error(), strings.ToLower(resp["message"].(string)))
+	assert.Equal(t, external.ErrServiceTimeout.Error(), strings.ToLower(resp["message"].(string)))
 
 	pub.AssertExpectations(t)
 }
@@ -442,8 +442,8 @@ func TestPublishFromStoreTrueWithBody(t *testing.T) {
 
 	w := httptest.NewRecorder()
 	req := httptest.NewRequest("POST", "/drafts/content/a-valid-uuid/annotations/publish?fromStore=true", strings.NewReader(testPublishBody))
-	req.Header.Add(annotations.PreviousDocumentHashHeader, "hash")
-	req.Header.Add(annotations.OriginSystemIDHeader, "originSystemId")
+	req.Header.Add(external.PreviousDocumentHashHeader, "hash")
+	req.Header.Add(external.OriginSystemIDHeader, "originSystemId")
 
 	r.ServeHTTP(w, req)
 
@@ -470,7 +470,7 @@ func TestPublishFromStoreFails(t *testing.T) {
 
 	w := httptest.NewRecorder()
 	req := httptest.NewRequest("POST", "/drafts/content/a-valid-uuid/annotations/publish?fromStore=true", nil)
-	req.Header.Add(annotations.OriginSystemIDHeader, "originSystemId")
+	req.Header.Add(external.OriginSystemIDHeader, "originSystemId")
 
 	r.ServeHTTP(w, req)
 

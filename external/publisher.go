@@ -1,4 +1,4 @@
-package annotations
+package external
 
 import (
 	"bytes"
@@ -9,7 +9,6 @@ import (
 	"net"
 	"net/http"
 
-	"github.com/Financial-Times/annotations-publisher/health"
 	"github.com/Financial-Times/go-logger/v2"
 	tid "github.com/Financial-Times/transactionid-utils-go"
 )
@@ -24,37 +23,35 @@ var (
 )
 
 // Publisher provides an interface to publish annotations to UPP
-type Publisher interface {
-	health.ExternalService
-	Publish(ctx context.Context, uuid string, body map[string]interface{}) error
-	PublishFromStore(ctx context.Context, uuid string) error
-	SaveAndPublish(ctx context.Context, uuid string, hash string, body map[string]interface{}) error
-}
+//type Publisher interface {
+//	health.ExternalService
+//	Publish(ctx context.Context, uuid string, body map[string]interface{}) error
+//	PublishFromStore(ctx context.Context, uuid string) error
+//	SaveAndPublish(ctx context.Context, uuid string, hash string, body map[string]interface{}) error
+//}
 
-type uppPublisher struct {
-	client                 *http.Client
-	draftAnnotationsClient Client
-	publishEndpoint        string
-	gtgEndpoint            string
-	logger                 *logger.UPPLogger
+type UppPublisher struct {
+	client          *http.Client
+	publishEndpoint string
+	gtgEndpoint     string
+	logger          *logger.UPPLogger
 }
 
 // NewPublisher returns a new Publisher instance
-func NewPublisher(draftAnnotationsClient Client, publishEndpoint string, gtgEndpoint string, client *http.Client, logger *logger.UPPLogger) Publisher {
+func NewPublisher(draftAnnotationsClient *RWClient, publishEndpoint string, gtgEndpoint string, client *http.Client, logger *logger.UPPLogger) *UppPublisher {
 	logger.WithField("endpoint", draftAnnotationsClient.Endpoint()).Info("draft annotations r/w endpoint")
 	logger.WithField("endpoint", publishEndpoint).Info("publish endpoint")
 
-	return &uppPublisher{
-		client:                 client,
-		draftAnnotationsClient: draftAnnotationsClient,
-		publishEndpoint:        publishEndpoint,
-		gtgEndpoint:            gtgEndpoint,
-		logger:                 logger,
+	return &UppPublisher{
+		client:          client,
+		publishEndpoint: publishEndpoint,
+		gtgEndpoint:     gtgEndpoint,
+		logger:          logger,
 	}
 }
 
 // Publish sends the annotations to UPP via the configured publishEndpoint. Requests contain X-Origin-System-Id and X-Request-Id and a User-Agent as provided.
-func (a *uppPublisher) Publish(ctx context.Context, uuid string, body map[string]interface{}) error {
+func (a *UppPublisher) Publish(ctx context.Context, uuid string, body map[string]interface{}) error {
 	txid, _ := tid.GetTransactionIDFromContext(ctx)
 
 	body["uuid"] = uuid
@@ -90,7 +87,7 @@ func (a *uppPublisher) Publish(ctx context.Context, uuid string, body map[string
 }
 
 // GTG performs a health check against the UPP cms-metadata-notifier service
-func (a *uppPublisher) GTG() error {
+func (a *UppPublisher) GTG() error {
 	req, err := http.NewRequest("GET", a.gtgEndpoint, nil)
 	if err != nil {
 		a.logger.WithError(err).WithField("healthEndpoint", a.gtgEndpoint).Error("Error in creating GTG request for UPP cms-metadata-notifier service")
@@ -116,51 +113,51 @@ func (a *uppPublisher) GTG() error {
 }
 
 // Endpoint returns the configured publish endpoint
-func (a *uppPublisher) Endpoint() string {
+func (a *UppPublisher) Endpoint() string {
 	return a.publishEndpoint
 }
 
-func (a *uppPublisher) PublishFromStore(ctx context.Context, uuid string) error {
-	txid, _ := tid.GetTransactionIDFromContext(ctx)
+//func (a *UppPublisher) PublishFromStore(ctx context.Context, published map[string]interface{}, uuid string) error {
+//	txid, _ := tid.GetTransactionIDFromContext(ctx)
+//
+//	var draft map[string]interface{}
+//	var hash string
+//	var published map[string]interface{}
+//	var err error
+//
+//	if draft, hash, err = a.draftAnnotationsClient.GetAnnotations(ctx, uuid); err == nil {
+//		published, _, err = a.draftAnnotationsClient.SaveAnnotations(ctx, uuid, hash, draft)
+//	}
+//
+//	if err != nil {
+//		if isTimeoutErr(err) {
+//			a.logger.WithTransactionID(txid).WithError(err).Error("r/w to draft annotations timed out ")
+//			return ErrServiceTimeout
+//		}
+//		a.logger.WithError(err).Error("r/w to draft annotations failed")
+//		return err
+//	}
+//
+//	err = a.Publish(ctx, uuid, published)
+//
+//	return err
+//}
 
-	var draft map[string]interface{}
-	var hash string
-	var published map[string]interface{}
-	var err error
-
-	if draft, hash, err = a.draftAnnotationsClient.GetAnnotations(ctx, uuid); err == nil {
-		published, _, err = a.draftAnnotationsClient.SaveAnnotations(ctx, uuid, hash, draft)
-	}
-
-	if err != nil {
-		if isTimeoutErr(err) {
-			a.logger.WithTransactionID(txid).WithError(err).Error("r/w to draft annotations timed out ")
-			return ErrServiceTimeout
-		}
-		a.logger.WithError(err).Error("r/w to draft annotations failed")
-		return err
-	}
-
-	err = a.Publish(ctx, uuid, published)
-
-	return err
-}
-
-func (a *uppPublisher) SaveAndPublish(ctx context.Context, uuid string, hash string, body map[string]interface{}) error {
-	txid, _ := tid.GetTransactionIDFromContext(ctx)
-	_, _, err := a.draftAnnotationsClient.SaveAnnotations(ctx, uuid, hash, body)
-
-	if err != nil {
-		if isTimeoutErr(err) {
-			a.logger.WithTransactionID(txid).WithError(err).Error("write to draft annotations timed out")
-			return ErrServiceTimeout
-		}
-
-		a.logger.WithError(err).Error("write to draft annotations failed")
-		return err
-	}
-	return a.PublishFromStore(ctx, uuid)
-}
+//func (a *UppPublisher) SaveAndPublish(ctx context.Context, uuid string, hash string, body map[string]interface{}) error {
+//	txid, _ := tid.GetTransactionIDFromContext(ctx)
+//	_, _, err := a.draftAnnotationsClient.SaveAnnotations(ctx, uuid, hash, body)
+//
+//	if err != nil {
+//		if isTimeoutErr(err) {
+//			a.logger.WithTransactionID(txid).WithError(err).Error("write to draft annotations timed out")
+//			return ErrServiceTimeout
+//		}
+//
+//		a.logger.WithError(err).Error("write to draft annotations failed")
+//		return err
+//	}
+//	return a.PublishFromStore(ctx, uuid)
+//}
 
 func isTimeoutErr(err error) bool {
 	netErr, ok := err.(net.Error)
