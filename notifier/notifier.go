@@ -22,8 +22,12 @@ var (
 	ErrServiceTimeout = errors.New("downstream service timed out")
 )
 
+type HTTPClient interface {
+	Do(req *http.Request) (*http.Response, error)
+}
+
 type API struct {
-	client          *http.Client
+	client          HTTPClient
 	publishEndpoint string
 	gtgEndpoint     string
 	logger          *logger.UPPLogger
@@ -67,7 +71,6 @@ func (a *API) Publish(ctx context.Context, uuid string, body map[string]interfac
 		}
 		return err
 	}
-
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
