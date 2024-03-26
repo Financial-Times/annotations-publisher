@@ -20,8 +20,12 @@ const (
 
 var ErrMissingOriginHeader = errors.New("X-Origin-System-Id header not found in context")
 
+type HTTPClient interface {
+	Do(req *http.Request) (*http.Response, error)
+}
+
 type API struct {
-	client      *http.Client
+	client      HTTPClient
 	rwEndpoint  string
 	gtgEndpoint string
 	logger      *logger.UPPLogger
