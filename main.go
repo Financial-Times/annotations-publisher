@@ -111,10 +111,6 @@ func main() {
 
 		publisher := service.NewPublisher(logger, draftAnnotationsAPI, notifierAPI)
 
-		//TODO: remove this after testing
-		os.Setenv("JSON_SCHEMAS_PATH", "./schemas")
-		os.Setenv("JSON_SCHEMA_NAME", "annotations-pac.json;annotations-sv.json")
-
 		v := validator.NewSchemaValidator(logger)
 		jv := v.GetJSONValidator()
 		sh := v.GetSchemaHandler()
