@@ -119,20 +119,16 @@ func TestStartServer(t *testing.T) {
 
 	// Create a mock logger
 	logger := l.NewUPPLogger("test", "info")
-	port := 8080
+	port := 8181
 	apiYml := "../api/api.yml"
 	// Call the Start function
 	s := New(&port, &apiYml, h, healthService, logger)
 	go s.Start()
 
-	var resp *http.Response
-	for {
-		resp, _ = http.Get("http://localhost:8080/schemas")
-		if resp.StatusCode == http.StatusOK {
-			break
-		}
-	}
+	time.Sleep(3 * time.Second)
 
+	resp, err := http.Get("http://localhost:8181/schemas")
+	assert.NoError(t, err)
 	defer resp.Body.Close()
 
 	// Check the response status code
