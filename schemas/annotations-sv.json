@@ -1,42 +1,27 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "http://upp-publishing-prod.ft.com/schema/annotations-sv+json",
-  "title": "Sustainable Views Annotations",
+  "title": "Draft Sustainable Views Annotations",
   "type": "object",
-  "description": "Schema for Sustainable Views Annotations",
+  "description": "Schema for Draft Sustainable Views Annotations",
   "properties": {
-    "uuid": {
-      "type": "string",
-      "pattern": "[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}",
-      "description": "Proprietary unique FT identifier"
-    },
     "annotations": {
       "type": "array",
-      "description": "Sustainable Views annotations",
+      "description": "Draft Sustainable Views annotations",
       "items": {
         "$ref": "#/$defs/annotation"
       }
     },
     "publication": {
       "type": "array",
-      "description": "List of Publication IDs",
+      "description": "Indicates which titles are aware of this content",
       "items": {
         "type": "string",
-        "format": "uuid"
+        "pattern": "[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}"
       }
-    },
-    "lastModified": {
-      "type": "string",
-      "format": "date-time",
-      "description": "An internal timestamp tracking every single modification of the content"
-    },
-    "publishReference": {
-      "type": "string",
-      "description": "The transaction id of the write operation in UPP. Internal property."
     }
   },
   "required": [
-    "uuid",
     "annotations",
     "publication"
   ],

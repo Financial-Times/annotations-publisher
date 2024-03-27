@@ -113,7 +113,7 @@ func main() {
 
 		//TODO: remove this after testing
 		os.Setenv("JSON_SCHEMAS_PATH", "./schemas")
-		os.Setenv("JSON_SCHEMA_NAME", "annotations-pac.json;annotations-sv.json;annotations-draft.json")
+		os.Setenv("JSON_SCHEMA_NAME", "annotations-pac.json;annotations-sv.json")
 
 		v := validator.NewSchemaValidator(logger)
 		jv := v.GetJSONValidator()
