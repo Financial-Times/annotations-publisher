@@ -122,8 +122,8 @@ func main() {
 		h := handler.NewHandler(logger, publisher, jv, sh)
 
 		healthService := health.NewHealthService(*appSystemCode, *appName, appDescription, notifierAPI, draftAnnotationsAPI)
-
-		server.Start(*port, apiYml, h, healthService, logger)
+		srv := server.New(port, apiYml, h, healthService, logger)
+		srv.Start()
 	}
 
 	err := app.Run(os.Args)
