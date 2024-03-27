@@ -4,19 +4,33 @@ import (
 	"context"
 	"net"
 
-	"github.com/Financial-Times/annotations-publisher/draft"
 	"github.com/Financial-Times/annotations-publisher/notifier"
 	"github.com/Financial-Times/go-logger/v2"
 	tid "github.com/Financial-Times/transactionid-utils-go"
 )
 
-type Service struct {
-	l           *logger.UPPLogger
-	draftAPI    *draft.API
-	notifierAPI *notifier.API
+type serviceMethods interface {
+	GTG() error
+	Endpoint() string
+}
+type annotationsSaver interface {
+	SaveAnnotations(ctx context.Context, uuid string, hash string, body map[string]interface{}) (map[string]interface{}, string, error)
+	GetAnnotations(ctx context.Context, uuid string) (map[string]interface{}, string, error)
+	serviceMethods
 }
 
-func NewPublisher(l *logger.UPPLogger, draftAPI *draft.API, notifierAPI *notifier.API) *Service {
+type publisher interface {
+	Publish(ctx context.Context, uuid string, body map[string]interface{}) error
+	serviceMethods
+}
+
+type Service struct {
+	l           *logger.UPPLogger
+	draftAPI    annotationsSaver
+	notifierAPI publisher
+}
+
+func NewPublisher(l *logger.UPPLogger, draftAPI annotationsSaver, notifierAPI publisher) *Service {
 	return &Service{l: l, draftAPI: draftAPI, notifierAPI: notifierAPI}
 }
 
