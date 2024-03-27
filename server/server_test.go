@@ -115,7 +115,7 @@ func TestStartServer(t *testing.T) {
 	// Create a mock health checker
 	healthService := new(mockHealthChecker)
 	healthService.On("GTG").Return(gtg.Status{GoodToGo: true})
-	healthService.On("HealthCheckHandleFunc").Return(func(w http.ResponseWriter, r *http.Request) {})
+	healthService.On("HealthCheckHandleFunc").Return(func(_ http.ResponseWriter, _ *http.Request) {})
 
 	// Create a mock logger
 	logger := l.NewUPPLogger("test", "info")
@@ -143,12 +143,8 @@ func TestStartServer(t *testing.T) {
 	// Assert that the handler's ListSchemas method was called
 	h.AssertCalled(t, "ListSchemas", mock.Anything, mock.Anything)
 }
-
 func TestListenForShutdownSignal(t *testing.T) {
-	// Create a mock handler
 	h := new(mockHandler)
-
-	// Create a mock health checker
 	healthService := new(mockHealthChecker)
 
 	// Create a mock logger
@@ -163,7 +159,7 @@ func TestListenForShutdownSignal(t *testing.T) {
 	// Send a signal after a short delay
 	go func() {
 		time.Sleep(time.Millisecond * 100)
-		syscall.Kill(syscall.Getpid(), syscall.SIGINT)
+		_ = syscall.Kill(syscall.Getpid(), syscall.SIGINT)
 	}()
 
 	select {

@@ -37,7 +37,8 @@ func TestPublish(t *testing.T) {
 		logger:          log,
 	}
 	ctx := context.Background()
-	ctx = context.WithValue(ctx, "transaction_id", "test")
+	type ctxTransactionKey string
+	ctx = context.WithValue(ctx, ctxTransactionKey("transaction_id"), "test")
 	ctx = context.WithValue(ctx, CtxOriginSystemIDKey(OriginSystemIDHeader), "test")
 
 	testCases := []struct {
@@ -229,5 +230,4 @@ func TestEndpoint(t *testing.T) {
 func TestIsTimeoutErr(t *testing.T) {
 	err := &timeoutError{msg: "This is a timeout error"}
 	assert.True(t, isTimeoutErr(err))
-
 }

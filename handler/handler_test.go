@@ -17,38 +17,38 @@ import (
 	"github.com/stretchr/testify/mock"
 )
 
-type MockPublisher struct {
+type mockPublisher struct {
 	mock.Mock
 }
 
-func (m *MockPublisher) PublishFromStore(ctx context.Context, uuid string) error {
+func (m *mockPublisher) PublishFromStore(ctx context.Context, uuid string) error {
 	args := m.Called(ctx, uuid)
 	return args.Error(0)
 }
 
-func (m *MockPublisher) SaveAndPublish(ctx context.Context, uuid string, hash string, body map[string]interface{}) error {
+func (m *mockPublisher) SaveAndPublish(ctx context.Context, uuid string, hash string, body map[string]interface{}) error {
 	args := m.Called(ctx, uuid, hash, body)
 	return args.Error(0)
 }
 
-type MockJsonValidator struct {
+type mockJSONValidator struct {
 	mock.Mock
 }
 
-func (m *MockJsonValidator) Validate(i interface{}) error {
+func (m *mockJSONValidator) Validate(i interface{}) error {
 	args := m.Called(i)
 	return args.Error(0)
 }
 
-type MockSchemaHandler struct {
+type mockSchemaHandler struct {
 	mock.Mock
 }
 
-func (m *MockSchemaHandler) ListSchemas(w http.ResponseWriter, r *http.Request) {
+func (m *mockSchemaHandler) ListSchemas(w http.ResponseWriter, r *http.Request) {
 	m.Called(w, r)
 }
 
-func (m *MockSchemaHandler) GetSchema(w http.ResponseWriter, r *http.Request) {
+func (m *mockSchemaHandler) GetSchema(w http.ResponseWriter, r *http.Request) {
 	m.Called(w, r)
 }
 
@@ -291,9 +291,9 @@ func TestPublish(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			mockPub := new(MockPublisher)
-			mockV := new(MockJsonValidator)
-			mockSH := new(MockSchemaHandler)
+			mockPub := new(mockPublisher)
+			mockV := new(mockJSONValidator)
+			mockSH := new(mockSchemaHandler)
 			handler := NewHandler(l, mockPub, mockV, mockSH)
 
 			r := mux.NewRouter()
@@ -313,8 +313,6 @@ func TestPublish(t *testing.T) {
 			req.Header.Set(tid.TransactionIDHeader, tc.tid)
 			req.Header.Set(notifier.OriginSystemIDHeader, tc.origin)
 			req.Header.Set(draft.PreviousDocumentHashHeader, tc.previousHash)
-			ctx := context.Background()
-			ctx = context.WithValue(ctx, notifier.CtxOriginSystemIDKey(notifier.OriginSystemIDHeader), tc.origin)
 
 			mockPub.On("SaveAndPublish", mock.Anything, tc.uuid, tc.previousHash, mock.Anything).Return(tc.mockSavePublishError)
 			mockPub.On("PublishFromStore", mock.Anything, tc.uuid).Return(tc.mockPublishFromStoreError)
@@ -328,7 +326,6 @@ func TestPublish(t *testing.T) {
 			assertCalls(t, tc, mockPub, mockV)
 		})
 	}
-
 }
 
 func TestValidate(t *testing.T) {
@@ -373,9 +370,9 @@ func TestValidate(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			mockPub := new(MockPublisher)
-			mockV := new(MockJsonValidator)
-			mockSH := new(MockSchemaHandler)
+			mockPub := new(mockPublisher)
+			mockV := new(mockJSONValidator)
+			mockSH := new(mockSchemaHandler)
 			handler := NewHandler(l, mockPub, mockV, mockSH)
 
 			r := mux.NewRouter()
@@ -401,15 +398,14 @@ func TestValidate(t *testing.T) {
 				mockV.AssertNotCalled(t, "Validate", mock.Anything)
 			}
 		})
-
 	}
 }
 
 func TestListSchemas(t *testing.T) {
 	l := logger.NewUPPLogger("test", "debug")
-	mockPub := new(MockPublisher)
-	mockV := new(MockJsonValidator)
-	mockSH := new(MockSchemaHandler)
+	mockPub := new(mockPublisher)
+	mockV := new(mockJSONValidator)
+	mockSH := new(mockSchemaHandler)
 	handler := NewHandler(l, mockPub, mockV, mockSH)
 
 	r := mux.NewRouter()
@@ -431,9 +427,9 @@ func TestListSchemas(t *testing.T) {
 
 func TestGetSchema(t *testing.T) {
 	l := logger.NewUPPLogger("test", "debug")
-	mockPub := new(MockPublisher)
-	mockV := new(MockJsonValidator)
-	mockSH := new(MockSchemaHandler)
+	mockPub := new(mockPublisher)
+	mockV := new(mockJSONValidator)
+	mockSH := new(mockSchemaHandler)
 	handler := NewHandler(l, mockPub, mockV, mockSH)
 
 	r := mux.NewRouter()
@@ -452,7 +448,8 @@ func TestGetSchema(t *testing.T) {
 	assert.Equal(t, http.StatusOK, rr.Code)
 	mockSH.AssertCalled(t, "GetSchema", mock.Anything, mock.Anything)
 }
-func assertCalls(t *testing.T, tc pubTestCase, mockPub *MockPublisher, mockV *MockJsonValidator) {
+
+func assertCalls(t *testing.T, tc pubTestCase, mockPub *mockPublisher, mockV *mockJSONValidator) {
 	t.Helper()
 	if tc.callSaveAndPublishMocks {
 		mockPub.AssertCalled(t, "SaveAndPublish", mock.Anything, tc.uuid, tc.previousHash, mock.Anything)
@@ -471,5 +468,4 @@ func assertCalls(t *testing.T, tc pubTestCase, mockPub *MockPublisher, mockV *Mo
 	} else {
 		mockPub.AssertNotCalled(t, "PublishFromStore", mock.Anything, tc.uuid)
 	}
-
 }

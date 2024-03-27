@@ -142,9 +142,7 @@ func TestSaveAndPublish(t *testing.T) {
 			// Assert that the mock methods were called with the expected arguments
 			assertCalls(t, tc, draftAPI, notifierAPI)
 		})
-
 	}
-
 }
 
 func TestPublishFromStore(t *testing.T) {
@@ -224,7 +222,6 @@ func TestPublishFromStore(t *testing.T) {
 func TestIsTimeoutErr(t *testing.T) {
 	err := &timeoutError{msg: "This is a timeout error"}
 	assert.True(t, isTimeoutErr(err))
-
 }
 
 func assertCalls(t *testing.T, tc testCase, mockDraft *mockDraftAPI, mockNotifier *mockNotifierAPI) {
@@ -245,5 +242,4 @@ func assertCalls(t *testing.T, tc testCase, mockDraft *mockDraftAPI, mockNotifie
 	} else {
 		mockNotifier.AssertNotCalled(t, "Publish", mock.Anything, tc.uuid, tc.body)
 	}
-
 }

@@ -158,7 +158,6 @@ func TestGetAnnotations(t *testing.T) {
 	}
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-
 			if tc.useMockClient {
 				mockClient.On("Do", mock.Anything).Return(tc.mockResponse, tc.mockError).Once()
 			}
@@ -342,7 +341,6 @@ func TestAPI_SaveAnnotations(t *testing.T) {
 			assert.Equal(t, tc.expectedHashHeader, hashHeader)
 		})
 	}
-
 }
 
 func TestNewAPI(t *testing.T) {
