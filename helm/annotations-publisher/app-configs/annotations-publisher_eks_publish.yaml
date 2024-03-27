@@ -3,3 +3,6 @@ replicaCount: 2
 
 service:
   name: annotations-publisher
+env:
+  JSON_SCHEMAS_PATH: "/schemas"
+  JSON_SCHEMA_NAME: "annotations-pac.json;annotations-sv.json"

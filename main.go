@@ -1,27 +1,28 @@
 package main
 
 import (
-	"net/http"
 	"os"
 	"time"
 
-	"github.com/Financial-Times/annotations-publisher/annotations"
+	"github.com/Financial-Times/annotations-publisher/draft"
+	"github.com/Financial-Times/annotations-publisher/handler"
 	"github.com/Financial-Times/annotations-publisher/health"
-	"github.com/Financial-Times/annotations-publisher/resources"
-	"github.com/Financial-Times/api-endpoint"
+	"github.com/Financial-Times/annotations-publisher/notifier"
+	"github.com/Financial-Times/annotations-publisher/server"
+	"github.com/Financial-Times/annotations-publisher/service"
+	"github.com/Financial-Times/cm-annotations-ontology/validator"
 	"github.com/Financial-Times/go-ft-http/fthttp"
-	"github.com/Financial-Times/http-handlers-go/httphandlers"
-	status "github.com/Financial-Times/service-status-go/httphandlers"
-	"github.com/husobee/vestigo"
+	l "github.com/Financial-Times/go-logger/v2"
 	cli "github.com/jawher/mow.cli"
-	"github.com/rcrowley/go-metrics"
-	log "github.com/sirupsen/logrus"
 )
 
-const appDescription = "PAC Annotations Publisher"
+const (
+	appDescription = "PAC Annotations Publisher"
+	appCode        = "annotations-publisher"
+)
 
 func main() {
-	app := cli.App("annotations-publisher", appDescription)
+	app := cli.App(appCode, appDescription)
 
 	appSystemCode := app.String(cli.StringOpt{
 		Name:   "app-system-code",
@@ -37,9 +38,9 @@ func main() {
 		EnvVar: "APP_NAME",
 	})
 
-	port := app.String(cli.StringOpt{
+	port := app.Int(cli.IntOpt{
 		Name:   "port",
-		Value:  "8080",
+		Value:  8080,
 		Desc:   "Port to listen on",
 		EnvVar: "APP_PORT",
 	})
@@ -51,23 +52,30 @@ func main() {
 		EnvVar: "DRAFT_ANNOTATIONS_RW_ENDPOINT",
 	})
 
-	annotationsEndpoint := app.String(cli.StringOpt{
-		Name:   "annotations-publish-endpoint",
-		Value:  "http://cms-metadata-notifier:8080/notify",
-		Desc:   "Endpoint to publish annotations to UPP",
-		EnvVar: "ANNOTATIONS_PUBLISH_ENDPOINT",
+	draftsGTGEndpoint := app.String(cli.StringOpt{
+		Name:   "draft-annotations-rw-gtg-endpoint",
+		Desc:   "GTG Endpoint for saving/reading draft annotations",
+		Value:  "http://draft-annotations-api:8080/__gtg",
+		EnvVar: "DRAFT_ANNOTATIONS_RW_GTG_ENDPOINT",
 	})
 
-	annotationsGTGEndpoint := app.String(cli.StringOpt{
-		Name:   "annotations-publish-gtg-endpoint",
+	metadataNotifier := app.String(cli.StringOpt{
+		Name:   "metadata-notifier-endpoint",
+		Value:  "http://cms-metadata-notifier:8080/notify",
+		Desc:   "Endpoint to publish annotations to UPP",
+		EnvVar: "METADATA_NOTIFIER_ENDPOINT",
+	})
+
+	metadataNotifierGTGEndpoint := app.String(cli.StringOpt{
+		Name:   "metadata-notifier-gtg-endpoint",
 		Value:  "http://cms-metadata-notifier:8080/__gtg",
 		Desc:   "GTG Endpoint for publishing annotations to UPP",
-		EnvVar: "ANNOTATIONS_PUBLISH_GTG_ENDPOINT",
+		EnvVar: "METADATA_NOTIFIER_GTG_ENDPOINT",
 	})
 
 	apiYml := app.String(cli.StringOpt{
 		Name:   "api-yml",
-		Value:  "./api.yml",
+		Value:  "api/api.yml",
 		Desc:   "Location of the API Swagger YML file.",
 		EnvVar: "API_YML",
 	})
@@ -79,61 +87,44 @@ func main() {
 		EnvVar: "HTTP_CLIENT_TIMEOUT",
 	})
 
-	log.SetFormatter(&log.JSONFormatter{})
-	log.SetLevel(log.InfoLevel)
-	log.Infof("[Startup] %v is starting", *appSystemCode)
+	logLevel := app.String(cli.StringOpt{
+		Name:   "log-Level",
+		Value:  "INFO",
+		Desc:   "Logging level (DEBUG, INFO, WARN, ERROR)",
+		EnvVar: "LOG_LEVEL",
+	})
+
+	logger := l.NewUPPLogger(*appName, *logLevel)
+	logger.Infof("[Startup] %v is starting", *appSystemCode)
 
 	app.Action = func() {
-		log.Infof("System code: %s, App Name: %s, Port: %s", *appSystemCode, *appName, *port)
+		logger.Infof("System code: %s, App Name: %s, Port: %d", *appSystemCode, *appName, *port)
 		timeout, err := time.ParseDuration(*httpTimeout)
 		if err != nil {
-			log.WithError(err).Fatal("Provided http timeout is not in the standard duration format.")
+			logger.WithError(err).Fatal("Provided http timeout is not in the standard duration format.")
 		}
 
 		httpClient := fthttp.NewClient(timeout, "PAC", *appSystemCode)
 
-		draftAnnotationsRW, err := annotations.NewAnnotationsClient(*draftsEndpoint, httpClient)
-		if err != nil {
-			log.WithError(err).Fatal("Failed to create new draft annotations writer.")
-		}
+		draftAnnotationsAPI := draft.NewAPI(*draftsEndpoint, *draftsGTGEndpoint, httpClient, logger)
+		notifierAPI := notifier.NewAPI(*metadataNotifier, *metadataNotifierGTGEndpoint, httpClient, logger)
 
-		publisher := annotations.NewPublisher(draftAnnotationsRW, *annotationsEndpoint, *annotationsGTGEndpoint, httpClient)
-		healthService := health.NewHealthService(*appSystemCode, *appName, appDescription, publisher, draftAnnotationsRW)
+		publisher := service.NewPublisher(logger, draftAnnotationsAPI, notifierAPI)
 
-		serveEndpoints(*port, apiYml, publisher, healthService, timeout)
+		v := validator.NewSchemaValidator(logger)
+		jv := v.GetJSONValidator()
+		sh := v.GetSchemaHandler()
+
+		h := handler.NewHandler(logger, publisher, jv, sh)
+
+		healthService := health.NewHealthService(*appSystemCode, *appName, appDescription, notifierAPI, draftAnnotationsAPI)
+		srv := server.New(port, apiYml, h, healthService, logger)
+		srv.Start()
 	}
 
 	err := app.Run(os.Args)
 	if err != nil {
-		log.Errorf("App could not start, error=[%s]\n", err)
+		logger.Errorf("App could not start, error=[%s]\n", err)
 		return
-	}
-}
-
-func serveEndpoints(port string, apiYml *string, publisher annotations.Publisher, healthService *health.HealthService, timeout time.Duration) {
-	r := vestigo.NewRouter()
-	r.Post("/drafts/content/:uuid/annotations/publish", resources.Publish(publisher, timeout))
-
-	var monitoringRouter http.Handler = r
-	monitoringRouter = httphandlers.TransactionAwareRequestLoggingHandler(log.StandardLogger(), monitoringRouter)
-	monitoringRouter = httphandlers.HTTPMetricsHandler(metrics.DefaultRegistry, monitoringRouter)
-
-	r.Get("/__health", healthService.HealthCheckHandleFunc())
-	r.Get(status.GTGPath, status.NewGoodToGoHandler(healthService.GTG))
-	r.Get(status.BuildInfoPath, status.BuildInfoHandler)
-
-	http.Handle("/", monitoringRouter)
-
-	if apiYml != nil {
-		apiEndpoint, err := api.NewAPIEndpointForFile(*apiYml)
-		if err != nil {
-			log.WithError(err).WithField("file", *apiYml).Warn("Failed to serve the API Endpoint for this service. Please validate the Swagger YML and the file location")
-		} else {
-			r.Get(api.DefaultPath, apiEndpoint.ServeHTTP)
-		}
-	}
-
-	if err := http.ListenAndServe(":"+port, nil); err != nil {
-		log.Fatalf("Unable to start: %v", err)
 	}
 }

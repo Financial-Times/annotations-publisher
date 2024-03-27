@@ -39,6 +39,9 @@ paths:
           schema:
             type: object
             properties:
+              uuid:
+                type: string
+                x-example: 8b956373-1129-4e37-95b0-7bfc914ded70
               annotations:
                 type: array
                 items:
@@ -52,6 +55,7 @@ paths:
                       type: string
                       x-example: 'http://www.ft.com/ontology/hasContributor'
             example:
+              uuid: 8b956373-1129-4e37-95b0-7bfc914ded70
               annotations:
                 - id: 'http://www.ft.com/thing/5bd49568-6d7c-3c10-a5b0-2f3fd5974a6b'
                   predicate: 'http://www.ft.com/ontology/hasContributor'
@@ -85,6 +89,158 @@ paths:
           examples:
             application/json:
               message: Failed to publish to UPP
+  /schemas:
+    get:
+      summary: List Schemas
+      description: Returns the schemas used in the application.
+      produces:
+        - application/json
+      responses:
+        '200':
+          description: >
+            Returns the schemas used in the application.
+          examples:
+            application/json:
+              _links:
+                application/vnd.ft-upp-annotations-draft.json:
+                  - href: "/schemas/annotations-draft.json"
+                    name: "latest-version"
+                application/vnd.ft-upp-annotations-pac.json:
+                  - href: "/schemas/annotations-pac.json"
+                    name: "latest-version"
+                application/vnd.ft-upp-annotations-sv.json:
+                  - href: "/schemas/annotations-sv.json"
+                    name: "latest-version"
+                self:
+                  href: "/schemas"
+
+  /schemas/{schemaName}:
+    get:
+      summary: Schema
+      description: Returns the specified schema used in the application.
+      produces:
+        - application/json
+      parameters:
+        - name: schemaName
+          in: path
+          description: Name of the schema to return
+          required: true
+          type: string
+      responses:
+        404:
+          description: >
+            The specified schema does not exist in the application.
+        '200':
+          description: >
+            Returns the specified schema used in the application.
+          examples:
+            application/json:
+              $schema: "https://json-schema.org/draft/2020-12/schema"
+              $id: "http://upp-publishing-prod.ft.com/schema/annotations-draft+json"
+              title: "Draft Annotations"
+              type: "object"
+              description: "Schema for Draft Annotations"
+              properties:
+                uuid:
+                  type: "string"
+                  pattern: "[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}"
+                  description: "Proprietary unique FT identifier"
+                annotations:
+                  type: "array"
+                  description: "Draft annotations"
+                  items:
+                    ref: "#/$defs/annotation"
+                publication:
+                  type: "array"
+                  description: "List of Publication IDs"
+                  items:
+                    type: "string"
+                    format: "uuid"
+                lastModified:
+                  type: "string"
+                  format: "date-time"
+                  description: "An internal timestamp tracking every single modification of the content"
+                publishReference:
+                  type: "string"
+                  description: "The transaction id of the write operation in UPP. Internal property."
+              required:
+                - "uuid"
+                - "annotations"
+                - "publication"
+              additionalProperties: false
+              $defs:
+                annotation:
+                  type: "object"
+                  properties:
+                    id:
+                      type: "string"
+                      pattern: ".*/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})$"
+                      description: "ID of the related concept"
+                    predicate:
+                      type: "string"
+                      description: "Predicate of the annotation"
+                      enum:
+                        - "http://www.ft.com/ontology/annotation/about"
+                        - "http://www.ft.com/ontology/annotation/hasAuthor"
+                        - "http://www.ft.com/ontology/annotation/hasReference"
+                    apiUrl:
+                      type: "string"
+                      description: "API URL of the related concept"
+                    type:
+                      type: "string"
+                      description: "Type of the related concept"
+                    prefLabel:
+                      type: "string"
+                      description: "PrefLabel of the related concept"
+                    isFTAuthor:
+                      type: "boolean"
+                      description: "Indicates whether the related concept is an FT author"
+                  required:
+                    - "id"
+                    - "predicate"
+                  additionalProperties: false
+  /validate:
+    post:
+      summary: Validate
+      description: Validates the provided annotations.
+      consumes:
+        - application/json
+      produces:
+        - application/json
+      parameters:
+        - name: body
+          in: body
+          description: Annotations to validate
+          required: true
+          schema:
+            type: object
+            properties:
+              annotations:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    id:
+                      type: string
+                    predicate:
+                      type: string
+              uuid:
+                type: string
+              publication:
+                type: array
+                items:
+                  type: string
+      responses:
+        '400':
+            description: >
+                The request body is not in a valid schema format or missing required
+                fields.
+            examples:
+                application/json:
+                    message: see reason here
+        '200':
+          description: >
+            Validation successful.
   /__health:
     get:
       summary: Healthchecks
