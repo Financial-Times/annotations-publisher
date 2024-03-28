@@ -48,7 +48,7 @@ func main() {
 	draftsEndpoint := app.String(cli.StringOpt{
 		Name:   "draft-annotations-rw-endpoint",
 		Desc:   "Endpoint for saving/reading draft annotations",
-		Value:  "http://draft-annotations-api:8080/drafts/content/%v/annotations",
+		Value:  "http://draft-annotations-api:8080/draft-annotations/content/%v/annotations",
 		EnvVar: "DRAFT_ANNOTATIONS_RW_ENDPOINT",
 	})
 
