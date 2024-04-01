@@ -31,16 +31,16 @@ go test ./... -v -race
 $GOPATH/bin/annotations-publisher [--help]
 
 Options:
-	--app-system-code="annotations-publisher"                                                              System Code of the application ($APP_SYSTEM_CODE)
-	--app-name="annotations-publisher"                                                                     Application name ($APP_NAME)
-	--port="8080"                                                                                          Port to listen on ($APP_PORT)
-	--draft-annotations-rw-endpoint="http://draft-annotations-api:8080/drafts/content/%v/annotations"      Endpoint for saving/reading draft annotations ($DRAFT_ANNOTATIONS_RW_ENDPOINT)
-	--annotations-publish-endpoint=""                                                                      Endpoint to publish annotations to UPP ($ANNOTATIONS_PUBLISH_ENDPOINT)
-	--annotations-publish-gtg-endpoint=""                                                                  GTG Endpoint for publishing annotations to UPP ($ANNOTATIONS_PUBLISH_GTG_ENDPOINT)
-	--origin-system-id="http://cmdb.ft.com/systems/pac"                                                    The system this publish originated from ($ORIGIN_SYSTEM_ID)
-	--api-yml="./api.yml"                                                                                  Location of the API Swagger YML file. ($API_YML)
-	--http-timeout="8s"                                                                                    http client timeout in seconds ($HTTP_CLIENT_TIMEOUT)
-```
+  --app-system-code="annotations-publisher"                                                           System Code of the application ($APP_SYSTEM_CODE)
+  --app-name="annotations-publisher"                                                                  Application name ($APP_NAME)
+  --port=8080                                                                                         Port to listen on ($APP_PORT)
+  --draft-annotations-rw-endpoint="http://draft-annotations-api:8080/drafts/content/%v/annotations"   Endpoint for saving/reading draft annotations ($DRAFT_ANNOTATIONS_RW_ENDPOINT)
+  --draft-annotations-rw-gtg-endpoint="http://draft-annotations-api:8080/__gtg"                       GTG Endpoint for saving/reading draft annotations ($DRAFT_ANNOTATIONS_RW_GTG_ENDPOINT)
+  --metadata-notifier-endpoint="http://cms-metadata-notifier:8080/notify"                             Endpoint to publish annotations to UPP ($METADATA_NOTIFIER_ENDPOINT)
+  --metadata-notifier-gtg-endpoint="http://cms-metadata-notifier:8080/__gtg"                          GTG Endpoint for publishing annotations to UPP ($METADATA_NOTIFIER_GTG_ENDPOINT)
+  --api-yml="api/api.yml"                                                                             Location of the API Swagger YML file. ($API_YML)
+  --http-timeout="8s"                                                                                 http client timeout in seconds ($HTTP_CLIENT_TIMEOUT)
+  --log-Level="INFO"                                                                                  Logging level (DEBUG, INFO, WARN, ERROR) ($LOG_LEVEL)```
 
 3. Check the service health:
 
@@ -71,27 +71,43 @@ curl http://localhost:8080/draft/content/b7b871f6-8a89-11e4-8e24-00144feabdc0/an
 This endpoint first saves in PAC the annotations provided in the body and then does the same as Publish from Store.
 N.B.: Currently, if the hash value is empty, the request will succeed anyway. This may change in the future.
 
-curl http://localhost:8080/draft/content/b7b871f6-8a89-11e4-8e24-00144feabdc0/annotations/publish -XPOST -H "Previous-Document-Hash:hashvalue" --data
-'{
+Example draft annotation request, the X-Origin-System-Id header is mandatory:
 ```
-{
-      "annotations":[
-      {
-        "predicate": "http://www.ft.com/ontology/annotation/hasContributor",
-        "id": "http://www.ft.com/thing/5bd49568-6d7c-3c10-a5b0-2f3fd5974a6b",
-      },
-      {
-        "predicate": "http://www.ft.com/ontology/annotation/about",
-        "id": "http://www.ft.com/thing/d7de27f8-1633-3fcc-b308-c95a2ad7d1cd",
-      },
-      {
-        "predicate": "http://www.ft.com/ontology/annotation/hasDisplayTag",
-        "id": "http://www.ft.com/thing/d7de27f8-1633-3fcc-b308-c95a2ad7d1cd",
-      }
+curl --location 'http://localhost:8080/drafts/content/8b956373-1129-4e37-95b0-7bfc914ded70/annotations/publish' \
+--header 'X-Request-Id: dev_test' \
+--header 'X-Origin-System-Id: test_origin' \
+--header 'Content-Type: application/json' \
+--data '{
+    "annotations": [
+        {
+            "id": "http://www.ft.com/thing/0005e1a8-22a3-4dfb-bbc0-a16ef92b369a",
+            "predicate": "http://www.ft.com/ontology/annotation/about"
+        }
+    ],
+    "uuid": "8b956373-1129-4e37-95b0-7bfc914ded70",
+    "publication": [
+        "8e6c705e-1132-42a2-8db0-c295e29e8658"
     ]
-}
-```
 }'
+```
+
+Example PAC annotation request, the X-Origin-System-Id header is mandatory:
+```
+curl --location 'http://localhost:8080/drafts/content/8b956373-1129-4e37-95b0-7bfc914ded70/annotations/publish' \
+--header 'X-Request-Id: dev_test' \
+--header 'X-Origin-System-Id: test_origin' \
+--header 'Content-Type: application/json' \
+--data '{
+    "annotations": [
+        {
+            "id": "http://www.ft.com/thing/5bd49568-6d7c-3c10-a5b0-2f3fd5974a6b",
+            "predicate": "http://www.ft.com/ontology/annotation/mentions"
+        }
+    ],
+    "uuid": "8b956373-1129-4e37-95b0-7bfc914ded70"
+}'
+```
+
 
 ## Healthchecks
 
@@ -105,7 +121,7 @@ At the moment the `/__health` endpoint checks the availability of the UPP Publis
 
 ### Logging
 
-* The application uses [logrus](https://github.com/sirupsen/logrus); the log file is initialised in [main.go](main.go).
+* The application uses [FT Logger](https://github.com/Financial-Times/go-logger)
 * Logs are written to console.
 * NOTE: `/__build-info` and `/__gtg` endpoints are not logged as they are called every second from varnish/vulcand and this information is not needed in logs/splunk.
 

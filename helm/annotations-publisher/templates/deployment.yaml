@@ -28,8 +28,14 @@ spec:
           value: "{{ .Values.env.annotationsPublishGTGEndpoint }}"
         - name: DRAFT_ANNOTATIONS_RW_ENDPOINT
           value: "{{ .Values.env.draftAnnotationsEndpoint }}"
+        - name: DRAFT_ANNOTATIONS_RW_GTG_ENDPOINT
+          value: "{{ .Values.env.draftAnnotationsGTGEndpoint }}"
         - name: HTTP_CLIENT_TIMEOUT
           value: "{{ .Values.env.httpClientTimeout }}"
+        - name: JSON_SCHEMAS_PATH
+          value: "{{ .Values.env.jsonSchemasPath }}"
+        - name: JSON_SCHEMA_NAME
+          value: "{{ .Values.env.jsonSchemaName }}"
         ports:
         - containerPort: 8080
         livenessProbe:

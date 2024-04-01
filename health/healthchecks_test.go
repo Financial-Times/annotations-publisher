@@ -42,7 +42,7 @@ func TestDraftsCheck(t *testing.T) {
 	check := health.draftsCheck()
 	assert.Equal(t, "check-draft-annotations-health", check.ID)
 	assert.Equal(t, "Annotations cannot be published to UPP", check.BusinessImpact)
-	assert.Equal(t, "Check the PAC draft annotations api service", check.Name)
+	assert.Equal(t, "Check the PAC draft annotations api Service", check.Name)
 	assert.Equal(t, "https://dewey.ft.com/draft-annotations-api.html", check.PanicGuide)
 	assert.Equal(t, uint8(1), check.Severity)
 	assert.Equal(t, "Api for reading and saving draft annotations is not available at /__gtg", check.TechnicalSummary)
