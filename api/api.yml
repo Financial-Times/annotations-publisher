@@ -14,7 +14,7 @@ schemes:
   - http
   - https
 paths:
-  '/drafts/content/{uuid}/annotations/publish':
+  '/draft-annotations/content/{uuid}/annotations/publish':
     post:
       summary: Publish Annotations for Content
       description: 'Accepts annotations in an array, and publishes them to UPP'

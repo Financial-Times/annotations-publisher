@@ -56,7 +56,7 @@ func (s *Server) Start() {
 
 func (s *Server) registerEndpoints() func(r *mux.Router) {
 	r := func(r *mux.Router) {
-		r.HandleFunc("/drafts/content/{uuid}/annotations/publish", s.h.Publish).Methods(http.MethodPost)
+		r.HandleFunc("/draft-annotations/content/{uuid}/annotations/publish", s.h.Publish).Methods(http.MethodPost)
 		r.HandleFunc("/validate", s.h.Validate).Methods(http.MethodPost)
 		r.HandleFunc("/schemas", s.h.ListSchemas).Methods(http.MethodGet)
 		r.HandleFunc("/schemas/{schemaName}", s.h.GetSchema).Methods(http.MethodGet)

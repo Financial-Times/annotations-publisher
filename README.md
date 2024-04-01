@@ -34,7 +34,7 @@ Options:
   --app-system-code="annotations-publisher"                                                           System Code of the application ($APP_SYSTEM_CODE)
   --app-name="annotations-publisher"                                                                  Application name ($APP_NAME)
   --port=8080                                                                                         Port to listen on ($APP_PORT)
-  --draft-annotations-rw-endpoint="http://draft-annotations-api:8080/drafts/content/%v/annotations"   Endpoint for saving/reading draft annotations ($DRAFT_ANNOTATIONS_RW_ENDPOINT)
+  --draft-annotations-rw-endpoint="http://draft-annotations-api:8080/draft-annotations/content/%v/annotations"   Endpoint for saving/reading draft annotations ($DRAFT_ANNOTATIONS_RW_ENDPOINT)
   --draft-annotations-rw-gtg-endpoint="http://draft-annotations-api:8080/__gtg"                       GTG Endpoint for saving/reading draft annotations ($DRAFT_ANNOTATIONS_RW_GTG_ENDPOINT)
   --metadata-notifier-endpoint="http://cms-metadata-notifier:8080/notify"                             Endpoint to publish annotations to UPP ($METADATA_NOTIFIER_ENDPOINT)
   --metadata-notifier-gtg-endpoint="http://cms-metadata-notifier:8080/__gtg"                          GTG Endpoint for publishing annotations to UPP ($METADATA_NOTIFIER_GTG_ENDPOINT)
@@ -61,7 +61,7 @@ For a full description of API endpoints for the service, please see the [Open AP
 ####Publish from Store####
 
 ```
-curl http://localhost:8080/draft/content/b7b871f6-8a89-11e4-8e24-00144feabdc0/annotations/publish?fromStore=true -XPOST
+curl http://localhost:8080/draft-annotations/content/b7b871f6-8a89-11e4-8e24-00144feabdc0/annotations/publish?fromStore=true -XPOST
 ```
 
 А POST request with fromSource=true retrieves the latest annotations from draft-annotations-api, persists them to the PAC database draft and published-annotations tables, and then publishes them to UPP.
@@ -73,7 +73,7 @@ N.B.: Currently, if the hash value is empty, the request will succeed anyway. Th
 
 Example draft annotation request, the X-Origin-System-Id header is mandatory:
 ```
-curl --location 'http://localhost:8080/drafts/content/8b956373-1129-4e37-95b0-7bfc914ded70/annotations/publish' \
+curl --location 'http://localhost:8080/draft-annotations/content/8b956373-1129-4e37-95b0-7bfc914ded70/annotations/publish' \
 --header 'X-Request-Id: dev_test' \
 --header 'X-Origin-System-Id: test_origin' \
 --header 'Content-Type: application/json' \
@@ -93,7 +93,7 @@ curl --location 'http://localhost:8080/drafts/content/8b956373-1129-4e37-95b0-7b
 
 Example PAC annotation request, the X-Origin-System-Id header is mandatory:
 ```
-curl --location 'http://localhost:8080/drafts/content/8b956373-1129-4e37-95b0-7bfc914ded70/annotations/publish' \
+curl --location 'http://localhost:8080/draft-annotations/content/8b956373-1129-4e37-95b0-7bfc914ded70/annotations/publish' \
 --header 'X-Request-Id: dev_test' \
 --header 'X-Origin-System-Id: test_origin' \
 --header 'Content-Type: application/json' \

@@ -98,7 +98,7 @@ func TestGetAnnotations(t *testing.T) {
 	log := logger.NewUPPLogger("draft_test", "DEBUG")
 	mockAPI := &API{
 		client:      mockClient,
-		rwEndpoint:  "http://localhost:8080/drafts/content/%v/annotations",
+		rwEndpoint:  "http://localhost:8080/draft-annotations/content/%v/annotations",
 		gtgEndpoint: "http://localhost:8080/__gtg",
 		logger:      log,
 	}
@@ -138,7 +138,7 @@ func TestGetAnnotations(t *testing.T) {
 			name:          "Status Bad Request",
 			mockResponse:  &http.Response{StatusCode: http.StatusBadRequest, Body: io.NopCloser(bytes.NewBufferString(`{"key":"value"}`))},
 			mockError:     nil,
-			expectedError: fmt.Errorf("read from http://localhost:8080/drafts/content/test/annotations returned a 400 status code"),
+			expectedError: fmt.Errorf("read from http://localhost:8080/draft-annotations/content/test/annotations returned a 400 status code"),
 			useMockClient: true,
 			ctx:           ctx,
 		},
@@ -155,7 +155,7 @@ func TestGetAnnotations(t *testing.T) {
 			name:          "Break new request",
 			mockResponse:  &http.Response{StatusCode: http.StatusOK, Body: io.NopCloser(bytes.NewBufferString(`{"key":"value"}`))},
 			ctx:           ctx,
-			expectedError: fmt.Errorf("parse \"://draft-annotations-api:8080/drafts/content/test/annotations\": missing protocol scheme"),
+			expectedError: fmt.Errorf("parse \"://draft-annotations-api:8080/draft-annotations/content/test/annotations\": missing protocol scheme"),
 		},
 	}
 	for _, tc := range testCases {
@@ -165,7 +165,7 @@ func TestGetAnnotations(t *testing.T) {
 			}
 
 			if tc.name == "Break new request" {
-				mockAPI.rwEndpoint = "://draft-annotations-api:8080/drafts/content/%v/annotations"
+				mockAPI.rwEndpoint = "://draft-annotations-api:8080/draft-annotations/content/%v/annotations"
 			}
 			_, _, err := mockAPI.GetAnnotations(tc.ctx, "test")
 
@@ -187,7 +187,7 @@ func TestAPI_SaveAnnotations(t *testing.T) {
 	log := logger.NewUPPLogger("draft_test", "DEBUG")
 	mockAPI := &API{
 		client:      mockClient,
-		rwEndpoint:  "http://localhost:8080/drafts/content/%v/annotations",
+		rwEndpoint:  "http://localhost:8080/draft-annotations/content/%v/annotations",
 		gtgEndpoint: "http://localhost:8080/__gtg",
 		logger:      log,
 	}
@@ -284,7 +284,7 @@ func TestAPI_SaveAnnotations(t *testing.T) {
 			},
 			expectedAnnotation: map[string]interface{}{},
 			expectedHashHeader: "",
-			expectedError:      fmt.Errorf("write to http://localhost:8080/drafts/content/test/annotations returned a 400 status code"),
+			expectedError:      fmt.Errorf("write to http://localhost:8080/draft-annotations/content/test/annotations returned a 400 status code"),
 		},
 		{
 			name: "Status OK with non-empty body",
@@ -316,7 +316,7 @@ func TestAPI_SaveAnnotations(t *testing.T) {
 			ctx:                ctx,
 			useMockClient:      false,
 			expectedAnnotation: map[string]interface{}{},
-			expectedError:      fmt.Errorf("parse \"://draft-annotations-api:8080/drafts/content/test/annotations\": missing protocol scheme"),
+			expectedError:      fmt.Errorf("parse \"://draft-annotations-api:8080/draft-annotations/content/test/annotations\": missing protocol scheme"),
 		},
 	}
 	for _, tc := range testCases {
@@ -326,7 +326,7 @@ func TestAPI_SaveAnnotations(t *testing.T) {
 			}
 
 			if tc.name == "Brake new request" {
-				mockAPI.rwEndpoint = "://draft-annotations-api:8080/drafts/content/%v/annotations"
+				mockAPI.rwEndpoint = "://draft-annotations-api:8080/draft-annotations/content/%v/annotations"
 			}
 
 			ann, hashHeader, err := mockAPI.SaveAnnotations(tc.ctx, "test", "hash", tc.testAnnotation)
@@ -347,8 +347,8 @@ func TestAPI_SaveAnnotations(t *testing.T) {
 
 func TestNewAPI(t *testing.T) {
 	log := logger.NewUPPLogger("draft_test", "DEBUG")
-	api := NewAPI("http://localhost:8080/drafts/content/%v/annotations", "http://localhost:8080/__gtg", &http.Client{}, log)
-	assert.Equal(t, "http://localhost:8080/drafts/content/%v/annotations", api.rwEndpoint)
+	api := NewAPI("http://localhost:8080/draft-annotations/content/%v/annotations", "http://localhost:8080/__gtg", &http.Client{}, log)
+	assert.Equal(t, "http://localhost:8080/draft-annotations/content/%v/annotations", api.rwEndpoint)
 	assert.Equal(t, "http://localhost:8080/__gtg", api.gtgEndpoint)
 	assert.Equal(t, log, api.logger)
 }

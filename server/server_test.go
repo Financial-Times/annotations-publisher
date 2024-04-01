@@ -57,7 +57,7 @@ func TestSetupRoutes(t *testing.T) {
 	}{
 		{
 			name:           "Publish",
-			route:          "/drafts/content/{uuid}/annotations/publish",
+			route:          "/draft-annotations/content/{uuid}/annotations/publish",
 			expectedStatus: http.StatusOK,
 			method:         http.MethodPost,
 		},
