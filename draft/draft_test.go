@@ -34,11 +34,12 @@ func TestGTG(t *testing.T) {
 		logger:      log,
 	}
 	testCases := []struct {
-		name          string
-		mockError     error
-		expectedError error
-		mockResponse  *http.Response
-		useMockClient bool
+		name                 string
+		mockError            error
+		expectedError        error
+		mockResponse         *http.Response
+		useMockClient        bool
+		gtgEndpointOverwrite string
 	}{
 		{
 			name:          "Status OK",
@@ -59,10 +60,11 @@ func TestGTG(t *testing.T) {
 			useMockClient: true,
 		},
 		{
-			name:          "Break new request",
-			expectedError: fmt.Errorf("parse \":\": missing protocol scheme"),
-			mockResponse:  &http.Response{StatusCode: http.StatusOK, Body: io.NopCloser(bytes.NewBufferString(`{"key":"value"}`))},
-			useMockClient: false,
+			name:                 "Break new request",
+			expectedError:        fmt.Errorf("parse \":\": missing protocol scheme"),
+			mockResponse:         &http.Response{StatusCode: http.StatusOK, Body: io.NopCloser(bytes.NewBufferString(`{"key":"value"}`))},
+			useMockClient:        false,
+			gtgEndpointOverwrite: ":",
 		},
 	}
 	for _, tc := range testCases {
@@ -72,8 +74,8 @@ func TestGTG(t *testing.T) {
 			}
 
 			// Break the new request test case
-			if tc.name == "Break new request" {
-				mockAPI.gtgEndpoint = ":"
+			if tc.gtgEndpointOverwrite != "" {
+				mockAPI.gtgEndpoint = tc.gtgEndpointOverwrite
 			}
 
 			err := mockAPI.GTG()

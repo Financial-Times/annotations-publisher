@@ -85,7 +85,7 @@ func TestSetupRoutes(t *testing.T) {
 	healthService := new(mockHealthChecker)
 	logger := l.NewUPPLogger("test", "info")
 	s := New(nil, nil, h, healthService, logger)
-	routerFunc := s.setupRoutes()
+	routerFunc := s.registerEndpoints()
 	router := mux.NewRouter()
 	routerFunc(router)
 

@@ -49,12 +49,12 @@ func New(port *int, apiYml *string, h handler, hs healthChecker, logger *l.UPPLo
 }
 func (s *Server) Start() {
 	shutdown := s.listenForShutdownSignal()
-	router := s.setupRoutes()
+	router := s.registerEndpoints()
 	srv := s.startServer(router)
 	s.waitForShutdownSignal(srv, shutdown)
 }
 
-func (s *Server) setupRoutes() func(r *mux.Router) {
+func (s *Server) registerEndpoints() func(r *mux.Router) {
 	r := func(r *mux.Router) {
 		r.HandleFunc("/drafts/content/{uuid}/annotations/publish", s.h.Publish).Methods(http.MethodPost)
 		r.HandleFunc("/validate", s.h.Validate).Methods(http.MethodPost)
