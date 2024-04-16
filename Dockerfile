@@ -19,6 +19,8 @@ RUN VERSION="version=$(git describe --tag --always 2> /dev/null)" \
   && LDFLAGS="-s -w -X '"${BUILDINFO_PACKAGE}$VERSION"' -X '"${BUILDINFO_PACKAGE}$DATETIME"' -X '"${BUILDINFO_PACKAGE}$REPOSITORY"' -X '"${BUILDINFO_PACKAGE}$REVISION"' -X '"${BUILDINFO_PACKAGE}$BUILDER"'" \
   && mkdir -p /artifacts/schemas/ \
   && cp -r /${PROJECT}/schemas /artifacts/schemas \
+  && mkdir -p /artifacts/config/ \
+  && cp -r /${PROJECT}/config /artifacts/config \
   && CGO_ENABLED=0 go build -mod=readonly -a -o /artifacts/${PROJECT} -ldflags="${LDFLAGS}"
 
 

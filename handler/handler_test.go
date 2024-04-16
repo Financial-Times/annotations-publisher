@@ -35,8 +35,13 @@ type mockJSONValidator struct {
 	mock.Mock
 }
 
-func (m *mockJSONValidator) Validate(i interface{}) error {
-	args := m.Called(i)
+func (m *mockJSONValidator) ValidateByAPI(content interface{}, httpMethod string, url string, publication []interface{}) error {
+	args := m.Called(content, httpMethod, url, publication)
+	return args.Error(0)
+}
+
+func (m *mockJSONValidator) ValidateBySchema(content interface{}, schemaName string) error {
+	args := m.Called(content, schemaName)
 	return args.Error(0)
 }
 
@@ -76,7 +81,7 @@ func TestPublish(t *testing.T) {
 	testCases := []pubTestCase{
 		{
 			name:                    "Happy path",
-			body:                    []byte(`{"predicate": "foo", "id": "bar"}`),
+			body:                    []byte(`{"annotations":[{"predicate": "foo", "id": "bar"}], "publication":["8e6c705e-1132-42a2-8db0-c295e29e8658"]}`),
 			uuid:                    "8f054e68-999f-11e7-a652-cde3f882dd7b",
 			origin:                  "testOrigin",
 			tid:                     "tid_1234",
@@ -91,7 +96,7 @@ func TestPublish(t *testing.T) {
 		},
 		{
 			name:                    "Missing origin",
-			body:                    []byte(`{"predicate": "foo", "id": "bar"}`),
+			body:                    []byte(`{"annotations":[{"predicate": "foo", "id": "bar"}], "publication":["8e6c705e-1132-42a2-8db0-c295e29e8658"]}`),
 			uuid:                    "8f054e68-999f-11e7-a652-cde3f882dd7b",
 			origin:                  "",
 			tid:                     "tid_1234",
@@ -106,7 +111,7 @@ func TestPublish(t *testing.T) {
 		},
 		{
 			name:                    "FromStore with body",
-			body:                    []byte(`{"predicate": "foo", "id": "bar"}`),
+			body:                    []byte(`{"annotations":[{"predicate": "foo", "id": "bar"}], "publication":["8e6c705e-1132-42a2-8db0-c295e29e8658"]}`),
 			uuid:                    "8f054e68-999f-11e7-a652-cde3f882dd7b",
 			origin:                  "testOrigin",
 			tid:                     "tid_1234",
@@ -150,7 +155,7 @@ func TestPublish(t *testing.T) {
 			fromStore:               false,
 		},
 		{
-			name:                    "Request with invalid schema",
+			name:                    "Request with missing publication",
 			body:                    []byte(`{"invalid": "json"}`),
 			uuid:                    "8f054e68-999f-11e7-a652-cde3f882dd7b",
 			origin:                  "testOrigin",
@@ -158,15 +163,15 @@ func TestPublish(t *testing.T) {
 			previousHash:            "testHash",
 			mockSavePublishError:    nil,
 			mockValidationError:     fmt.Errorf("invalid schema"),
-			expectedMsg:             "{\"message\":\"Failed to validate json schema. Please provide a valid json request body\"}",
+			expectedMsg:             "{\"message\":\"Publication is missing\"}",
 			expectedStatus:          http.StatusBadRequest,
-			callValidatorMocks:      true,
+			callValidatorMocks:      false,
 			callSaveAndPublishMocks: false,
 			fromStore:               false,
 		},
 		{
 			name:                    "Request with SaveAndPublish error",
-			body:                    []byte(`{"predicate": "foo", "id": "bar"}`),
+			body:                    []byte(`{"annotations":[{"predicate": "foo", "id": "bar"}], "publication":["8e6c705e-1132-42a2-8db0-c295e29e8658"]}`),
 			uuid:                    "8f054e68-999f-11e7-a652-cde3f882dd7b",
 			origin:                  "testOrigin",
 			tid:                     "tid_1234",
@@ -181,7 +186,7 @@ func TestPublish(t *testing.T) {
 		},
 		{
 			name:                    "Request with PublishFromStore error",
-			body:                    []byte(`{"predicate": "foo", "id": "bar"}`),
+			body:                    []byte(`{"annotations":[{"predicate": "foo", "id": "bar"}], "publication":["8e6c705e-1132-42a2-8db0-c295e29e8658"]}`),
 			uuid:                    "8f054e68-999f-11e7-a652-cde3f882dd7b",
 			origin:                  "testOrigin",
 			tid:                     "tid_1234",
@@ -196,7 +201,7 @@ func TestPublish(t *testing.T) {
 		},
 		{
 			name:                    "Request with successful SaveAndPublish",
-			body:                    []byte(`{"predicate": "foo", "id": "bar"}`),
+			body:                    []byte(`{"annotations":[{"predicate": "foo", "id": "bar"}], "publication":["8e6c705e-1132-42a2-8db0-c295e29e8658"]}`),
 			uuid:                    "8f054e68-999f-11e7-a652-cde3f882dd7b",
 			origin:                  "testOrigin",
 			tid:                     "tid_1234",
@@ -211,7 +216,7 @@ func TestPublish(t *testing.T) {
 		},
 		{
 			name:                    "Request with SaveAndPublish timeout",
-			body:                    []byte(`{"predicate": "foo", "id": "bar"}`),
+			body:                    []byte(`{"annotations":[{"predicate": "foo", "id": "bar"}], "publication":["8e6c705e-1132-42a2-8db0-c295e29e8658"]}`),
 			uuid:                    "8f054e68-999f-11e7-a652-cde3f882dd7b",
 			origin:                  "testOrigin",
 			tid:                     "tid_1234",
@@ -316,7 +321,7 @@ func TestPublish(t *testing.T) {
 
 			mockPub.On("SaveAndPublish", mock.Anything, tc.uuid, tc.previousHash, mock.Anything).Return(tc.mockSavePublishError)
 			mockPub.On("PublishFromStore", mock.Anything, tc.uuid).Return(tc.mockPublishFromStoreError)
-			mockV.On("Validate", mock.Anything).Return(tc.mockValidationError)
+			mockV.On("ValidateByAPI", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(tc.mockValidationError)
 
 			rr := httptest.NewRecorder()
 			r.ServeHTTP(rr, req)
@@ -379,13 +384,14 @@ func TestValidate(t *testing.T) {
 			r.HandleFunc("/validate", handler.Validate).Methods("POST")
 
 			req, err := http.NewRequest("POST", "/validate", bytes.NewBuffer(tc.body))
+			req.Header.Set(SchemaNameHeader, "annotations-pac.json")
 			if err != nil {
 				t.Fatal(err)
 			}
 
 			req.Header.Set(tid.TransactionIDHeader, tc.tid)
 
-			mockV.On("Validate", mock.Anything).Return(tc.mockValidationError)
+			mockV.On("ValidateBySchema", mock.Anything, mock.Anything).Return(tc.mockValidationError)
 
 			rr := httptest.NewRecorder()
 			r.ServeHTTP(rr, req)
@@ -393,9 +399,9 @@ func TestValidate(t *testing.T) {
 			assert.Equal(t, tc.expectedStatus, rr.Code)
 			assert.Equal(t, tc.expectedMsg, rr.Body.String())
 			if tc.callValidatorMocks {
-				mockV.AssertCalled(t, "Validate", mock.Anything)
+				mockV.AssertCalled(t, "ValidateBySchema", mock.Anything, mock.Anything)
 			} else {
-				mockV.AssertNotCalled(t, "Validate", mock.Anything)
+				mockV.AssertNotCalled(t, "ValidateBySchema", mock.Anything, mock.Anything)
 			}
 		})
 	}
@@ -458,9 +464,9 @@ func assertCalls(t *testing.T, tc pubTestCase, mockPub *mockPublisher, mockV *mo
 	}
 
 	if tc.callValidatorMocks {
-		mockV.AssertCalled(t, "Validate", mock.Anything)
+		mockV.AssertCalled(t, "ValidateByAPI", mock.Anything, mock.Anything, mock.Anything, mock.Anything)
 	} else {
-		mockV.AssertNotCalled(t, "Validate", mock.Anything)
+		mockV.AssertNotCalled(t, "ValidateByAPI", mock.Anything, mock.Anything, mock.Anything, mock.Anything)
 	}
 
 	if tc.callPublishFromStoreMocks {

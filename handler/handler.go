@@ -18,8 +18,11 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
+const SchemaNameHeader = "Schema-Name"
+
 type jsonValidator interface {
-	Validate(interface{}) error
+	ValidateByAPI(interface{}, string, string, []interface{}) error
+	ValidateBySchema(content interface{}, schemaName string) (err error)
 }
 type schemaHandler interface {
 	ListSchemas(w http.ResponseWriter, r *http.Request)
@@ -46,6 +49,7 @@ func NewHandler(l *logger.UPPLogger, p publisher, jv jsonValidator, sh schemaHan
 	}
 }
 
+// nolint: gocognit
 func (h *Handler) Publish(w http.ResponseWriter, r *http.Request) {
 	txid := tid.GetTransactionIDFromRequest(r)
 	ctx, cancel := context.WithTimeout(tid.TransactionAwareContext(context.Background(), txid), 10*time.Second)
@@ -107,10 +111,22 @@ func (h *Handler) Publish(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err = h.jv.Validate(body)
+	var publication []interface{}
+	var ok bool
+	if v, found := body["publication"]; found {
+		if publication, ok = v.([]interface{}); !ok {
+			respondWithMessage(w, http.StatusBadRequest, "Publication is not in correct format")
+			return
+		}
+	} else {
+		respondWithMessage(w, http.StatusBadRequest, "Publication is missing")
+		return
+	}
+
+	err = h.jv.ValidateByAPI(body, r.Method, r.RequestURI, publication)
 	if err != nil {
 		h.logger.WithTransactionID(txid).WithField("reason", err).Warn("failed to validate schema")
-		respondWithMessage(w, http.StatusBadRequest, "Failed to validate json schema. Please provide a valid json request body")
+		respondWithMessage(w, http.StatusBadRequest, err.Error())
 		return
 	}
 
@@ -134,6 +150,12 @@ func (h *Handler) Publish(w http.ResponseWriter, r *http.Request) {
 func (h *Handler) Validate(w http.ResponseWriter, r *http.Request) {
 	txid := tid.GetTransactionIDFromRequest(r)
 
+	schemaName := r.Header.Get(SchemaNameHeader)
+	if schemaName == "" {
+		respondWithMessage(w, http.StatusBadRequest, "Schema-Name header missing")
+		return
+	}
+
 	b, err := io.ReadAll(r.Body)
 	if err != nil {
 		msg := "Failed to read request body"
@@ -151,7 +173,7 @@ func (h *Handler) Validate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err = h.jv.Validate(body)
+	err = h.jv.ValidateBySchema(body, schemaName)
 	if err != nil {
 		msg := fmt.Sprintf("Failed to validate request body: %v", err)
 		log.WithError(err).Error(msg)
