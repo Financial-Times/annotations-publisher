@@ -19,7 +19,8 @@ RUN VERSION="version=$(git describe --tag --always 2> /dev/null)" \
   && LDFLAGS="-s -w -X '"${BUILDINFO_PACKAGE}$VERSION"' -X '"${BUILDINFO_PACKAGE}$DATETIME"' -X '"${BUILDINFO_PACKAGE}$REPOSITORY"' -X '"${BUILDINFO_PACKAGE}$REVISION"' -X '"${BUILDINFO_PACKAGE}$BUILDER"'" \
   && mkdir -p /artifacts/schemas/ \
   && cp -r /${PROJECT}/schemas /artifacts/schemas \
-  && CGO_ENABLED=0 go build -mod=readonly -a -o /artifacts/${PROJECT} -ldflags="${LDFLAGS}"
+  && CGO_ENABLED=0 go build -mod=readonly -a -o /artifacts/${PROJECT} -ldflags="${LDFLAGS}" \
+  && CGO_ENABLED=0 go install github.com/go-delve/delve/cmd/dlv@latest
 
 
 # Multi-stage build - copy only the certs and the binary into the image
@@ -31,5 +32,8 @@ WORKDIR /
 COPY --from=0 /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
 COPY --from=0 /artifacts/* /
 COPY --from=0 /${PROJECT}/api/api.yml /
+COPY --from=0 /go/bin/dlv /
 
-CMD [ "/annotations-publisher" ]
+EXPOSE 8080 40000
+
+CMD  ["/dlv",  "--listen=:40000", "--headless=true", "--api-version=2", "exec", "/annotations-publisher"]
