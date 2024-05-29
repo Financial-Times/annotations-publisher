@@ -10,11 +10,14 @@ import (
 	"testing"
 	"time"
 
+	"github.com/Financial-Times/go-ft-http/fthttp"
+	"github.com/Financial-Times/go-logger/v2"
 	tid "github.com/Financial-Times/transactionid-utils-go"
 	"github.com/husobee/vestigo"
 	"github.com/pborman/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
+	"github.com/stretchr/testify/require"
 )
 
 type testTimeoutError struct {
@@ -58,9 +61,13 @@ func TestPublish(t *testing.T) {
 
 	draftAnnotationsClient := &mockAnnotationsClient{}
 	publishedAnnotationsClient := &mockAnnotationsClient{}
-	publisher := NewPublisher("originSystemID", draftAnnotationsClient, publishedAnnotationsClient, server.URL+"/notify", "user:pass", server.URL+"/__gtg", testingClient)
+	testingClient, err := fthttp.NewClient(
+		fthttp.WithSysInfo("PAC", "test-annotations-publisher"),
+	)
+	require.NoError(t, err)
+	publisher := NewPublisher("originSystemID", draftAnnotationsClient, publishedAnnotationsClient, server.URL+"/notify", "user:pass", server.URL+"/__gtg", testingClient, logger.NewUPPLogger("test", "DEBUG"))
 
-	err := publisher.Publish(tid.TransactionAwareContext(context.Background(), "tid"), uuid, make(map[string]interface{}))
+	err = publisher.Publish(tid.TransactionAwareContext(context.Background(), "tid"), uuid, make(map[string]interface{}))
 	assert.NoError(t, err)
 
 	draftAnnotationsClient.AssertExpectations(t)
@@ -70,11 +77,15 @@ func TestPublish(t *testing.T) {
 func TestPublishFailsToMarshalBodyToJSON(t *testing.T) {
 	draftAnnotationsClient := &mockAnnotationsClient{}
 	publishedAnnotationsClient := &mockAnnotationsClient{}
-	publisher := NewPublisher("originSystemID", draftAnnotationsClient, publishedAnnotationsClient, "/notify", "user:pass", "/__gtg", testingClient)
+	testingClient, err := fthttp.NewClient(
+		fthttp.WithSysInfo("PAC", "test-annotations-publisher"),
+	)
+	require.NoError(t, err)
+	publisher := NewPublisher("originSystemID", draftAnnotationsClient, publishedAnnotationsClient, "/notify", "user:pass", "/__gtg", testingClient, logger.NewUPPLogger("test", "DEBUG"))
 
 	body := make(map[string]interface{})
 	body["dodgy!"] = func() {}
-	err := publisher.Publish(tid.TransactionAwareContext(context.Background(), "tid"), "a-valid-uuid", body)
+	err = publisher.Publish(tid.TransactionAwareContext(context.Background(), "tid"), "a-valid-uuid", body)
 	assert.EqualError(t, err, "json: unsupported type: func()")
 
 	draftAnnotationsClient.AssertExpectations(t)
@@ -84,10 +95,14 @@ func TestPublishFailsToMarshalBodyToJSON(t *testing.T) {
 func TestPublishFailsInvalidURL(t *testing.T) {
 	draftAnnotationsClient := &mockAnnotationsClient{}
 	publishedAnnotationsClient := &mockAnnotationsClient{}
-	publisher := NewPublisher("originSystemID", draftAnnotationsClient, publishedAnnotationsClient, ":#", "user:pass", "/__gtg", testingClient)
+	testingClient, err := fthttp.NewClient(
+		fthttp.WithSysInfo("PAC", "test-annotations-publisher"),
+	)
+	require.NoError(t, err)
+	publisher := NewPublisher("originSystemID", draftAnnotationsClient, publishedAnnotationsClient, ":#", "user:pass", "/__gtg", testingClient, logger.NewUPPLogger("test", "DEBUG"))
 
 	body := make(map[string]interface{})
-	err := publisher.Publish(tid.TransactionAwareContext(context.Background(), "tid"), "a-valid-uuid", body)
+	err = publisher.Publish(tid.TransactionAwareContext(context.Background(), "tid"), "a-valid-uuid", body)
 	assert.EqualError(t, err, "parse \":\": missing protocol scheme")
 
 	draftAnnotationsClient.AssertExpectations(t)
@@ -97,10 +112,14 @@ func TestPublishFailsInvalidURL(t *testing.T) {
 func TestPublishRequestFailsServerUnavailable(t *testing.T) {
 	draftAnnotationsClient := &mockAnnotationsClient{}
 	publishedAnnotationsClient := &mockAnnotationsClient{}
-	publisher := NewPublisher("originSystemID", draftAnnotationsClient, publishedAnnotationsClient, "/publish", "user:pass", "/__gtg", testingClient)
+	testingClient, err := fthttp.NewClient(
+		fthttp.WithSysInfo("PAC", "test-annotations-publisher"),
+	)
+	require.NoError(t, err)
+	publisher := NewPublisher("originSystemID", draftAnnotationsClient, publishedAnnotationsClient, "/publish", "user:pass", "/__gtg", testingClient, logger.NewUPPLogger("test", "DEBUG"))
 
 	body := make(map[string]interface{})
-	err := publisher.Publish(tid.TransactionAwareContext(context.Background(), "tid"), "a-valid-uuid", body)
+	err = publisher.Publish(tid.TransactionAwareContext(context.Background(), "tid"), "a-valid-uuid", body)
 	assert.EqualError(t, err, "Post \"/publish\": unsupported protocol scheme \"\"")
 
 	draftAnnotationsClient.AssertExpectations(t)
@@ -114,10 +133,14 @@ func TestPublishRequestUnsuccessful(t *testing.T) {
 
 	draftAnnotationsClient := &mockAnnotationsClient{}
 	publishedAnnotationsClient := &mockAnnotationsClient{}
-	publisher := NewPublisher("originSystemID", draftAnnotationsClient, publishedAnnotationsClient, server.URL+"/notify", "user:pass", server.URL+"/__gtg", testingClient)
+	testingClient, err := fthttp.NewClient(
+		fthttp.WithSysInfo("PAC", "test-annotations-publisher"),
+	)
+	require.NoError(t, err)
+	publisher := NewPublisher("originSystemID", draftAnnotationsClient, publishedAnnotationsClient, server.URL+"/notify", "user:pass", server.URL+"/__gtg", testingClient, logger.NewUPPLogger("test", "DEBUG"))
 
 	body := make(map[string]interface{})
-	err := publisher.Publish(tid.TransactionAwareContext(context.Background(), "tid"), uuid, body)
+	err = publisher.Publish(tid.TransactionAwareContext(context.Background(), "tid"), uuid, body)
 	assert.EqualError(t, err, fmt.Sprintf("publish to %v/notify returned a 503 status code", server.URL))
 
 	draftAnnotationsClient.AssertExpectations(t)
@@ -127,7 +150,11 @@ func TestPublishRequestUnsuccessful(t *testing.T) {
 func TestPublisherEndpoint(t *testing.T) {
 	draftAnnotationsClient := &mockAnnotationsClient{}
 	publishedAnnotationsClient := &mockAnnotationsClient{}
-	publisher := NewPublisher("originSystemID", draftAnnotationsClient, publishedAnnotationsClient, "/publish", "user:pass", "/__gtg", testingClient)
+	testingClient, err := fthttp.NewClient(
+		fthttp.WithSysInfo("PAC", "test-annotations-publisher"),
+	)
+	require.NoError(t, err)
+	publisher := NewPublisher("originSystemID", draftAnnotationsClient, publishedAnnotationsClient, "/publish", "user:pass", "/__gtg", testingClient, logger.NewUPPLogger("test", "DEBUG"))
 	assert.Equal(t, "/publish", publisher.Endpoint())
 
 	draftAnnotationsClient.AssertExpectations(t)
@@ -137,14 +164,18 @@ func TestPublisherEndpoint(t *testing.T) {
 func TestPublisherAuthIsInvalid(t *testing.T) {
 	draftAnnotationsClient := &mockAnnotationsClient{}
 	publishedAnnotationsClient := &mockAnnotationsClient{}
-	publisher := NewPublisher("originSystemID", draftAnnotationsClient, publishedAnnotationsClient, "/publish", "user", "/__gtg", testingClient)
+	testingClient, err := fthttp.NewClient(
+		fthttp.WithSysInfo("PAC", "test-annotations-publisher"),
+	)
+	require.NoError(t, err)
+	publisher := NewPublisher("originSystemID", draftAnnotationsClient, publishedAnnotationsClient, "/publish", "user", "/__gtg", testingClient, logger.NewUPPLogger("test", "DEBUG"))
 
 	body := make(map[string]interface{})
-	err := publisher.Publish(tid.TransactionAwareContext(context.Background(), "tid"), "a-valid-uuid", body)
+	err = publisher.Publish(tid.TransactionAwareContext(context.Background(), "tid"), "a-valid-uuid", body)
 	assert.EqualError(t, err, "invalid auth configured")
 
 	// Now check for too many ':'s
-	publisher = NewPublisher("originSystemID", draftAnnotationsClient, publishedAnnotationsClient, "/publish", "user:pass:anotherPass", "/__gtg", testingClient)
+	publisher = NewPublisher("originSystemID", draftAnnotationsClient, publishedAnnotationsClient, "/publish", "user:pass:anotherPass", "/__gtg", testingClient, logger.NewUPPLogger("test", "DEBUG"))
 
 	err = publisher.Publish(tid.TransactionAwareContext(context.Background(), "tid"), "a-valid-uuid", body)
 	assert.EqualError(t, err, "invalid auth configured")
@@ -160,10 +191,14 @@ func TestPublisherAuthenticationFails(t *testing.T) {
 
 	draftAnnotationsClient := &mockAnnotationsClient{}
 	publishedAnnotationsClient := &mockAnnotationsClient{}
-	publisher := NewPublisher("originSystemID", draftAnnotationsClient, publishedAnnotationsClient, server.URL+"/notify", "user:should-fail", server.URL+"/__gtg", testingClient)
+	testingClient, err := fthttp.NewClient(
+		fthttp.WithSysInfo("PAC", "test-annotations-publisher"),
+	)
+	require.NoError(t, err)
+	publisher := NewPublisher("originSystemID", draftAnnotationsClient, publishedAnnotationsClient, server.URL+"/notify", "user:should-fail", server.URL+"/__gtg", testingClient, logger.NewUPPLogger("test", "DEBUG"))
 
 	body := make(map[string]interface{})
-	err := publisher.Publish(tid.TransactionAwareContext(context.Background(), "tid"), "a-valid-uuid", body)
+	err = publisher.Publish(tid.TransactionAwareContext(context.Background(), "tid"), "a-valid-uuid", body)
 	assert.EqualError(t, err, "publish authentication is invalid")
 
 	draftAnnotationsClient.AssertExpectations(t)
@@ -177,12 +212,16 @@ func TestPublisherPublishToUppTimeout(t *testing.T) {
 
 	draftAnnotationsClient := &mockAnnotationsClient{}
 	publishedAnnotationsClient := &mockAnnotationsClient{}
-	publisher := NewPublisher("originSystemID", draftAnnotationsClient, publishedAnnotationsClient, server.URL+"/notify", "user:pass", server.URL+"/__gtg", testingClient)
+	testingClient, err := fthttp.NewClient(
+		fthttp.WithSysInfo("PAC", "test-annotations-publisher"),
+	)
+	require.NoError(t, err)
+	publisher := NewPublisher("originSystemID", draftAnnotationsClient, publishedAnnotationsClient, server.URL+"/notify", "user:pass", server.URL+"/__gtg", testingClient, logger.NewUPPLogger("test", "DEBUG"))
 	ctx, cancel := context.WithTimeout(tid.TransactionAwareContext(context.Background(), "tid"), 10*time.Millisecond)
 	defer cancel()
 
 	body := make(map[string]interface{})
-	err := publisher.Publish(ctx, uuid, body)
+	err = publisher.Publish(ctx, uuid, body)
 	assert.EqualError(t, err, "downstream service timed out")
 
 	draftAnnotationsClient.AssertExpectations(t)
@@ -195,8 +234,12 @@ func TestPublisherGTG(t *testing.T) {
 
 	draftAnnotationsClient := &mockAnnotationsClient{}
 	publishedAnnotationsClient := &mockAnnotationsClient{}
-	publisher := NewPublisher("originSystemID", draftAnnotationsClient, publishedAnnotationsClient, "publishEndpoint", "user:pass", server.URL+"/__gtg", testingClient)
-	err := publisher.GTG()
+	testingClient, err := fthttp.NewClient(
+		fthttp.WithSysInfo("PAC", "test-annotations-publisher"),
+	)
+	require.NoError(t, err)
+	publisher := NewPublisher("originSystemID", draftAnnotationsClient, publishedAnnotationsClient, "publishEndpoint", "user:pass", server.URL+"/__gtg", testingClient, logger.NewUPPLogger("test", "DEBUG"))
+	err = publisher.GTG()
 	assert.NoError(t, err)
 }
 
@@ -206,24 +249,36 @@ func TestPublisherGTGFails(t *testing.T) {
 
 	draftAnnotationsClient := &mockAnnotationsClient{}
 	publishedAnnotationsClient := &mockAnnotationsClient{}
-	publisher := NewPublisher("originSystemID", draftAnnotationsClient, publishedAnnotationsClient, "publishEndpoint", "user:pass", server.URL+"/__gtg", testingClient)
-	err := publisher.GTG()
+	testingClient, err := fthttp.NewClient(
+		fthttp.WithSysInfo("PAC", "test-annotations-publisher"),
+	)
+	require.NoError(t, err)
+	publisher := NewPublisher("originSystemID", draftAnnotationsClient, publishedAnnotationsClient, "publishEndpoint", "user:pass", server.URL+"/__gtg", testingClient, logger.NewUPPLogger("test", "DEBUG"))
+	err = publisher.GTG()
 	assert.EqualError(t, err, fmt.Sprintf("GTG %v returned a %v status code for UPP cms-metadata-notifier service", server.URL+"/__gtg", http.StatusServiceUnavailable))
 }
 
 func TestPublisherGTGDoRequestFails(t *testing.T) {
 	draftAnnotationsClient := &mockAnnotationsClient{}
 	publishedAnnotationsClient := &mockAnnotationsClient{}
-	publisher := NewPublisher("originSystemID", draftAnnotationsClient, publishedAnnotationsClient, "publishEndpoint", "user:pass", "/__gtg", testingClient)
-	err := publisher.GTG()
+	testingClient, err := fthttp.NewClient(
+		fthttp.WithSysInfo("PAC", "test-annotations-publisher"),
+	)
+	require.NoError(t, err)
+	publisher := NewPublisher("originSystemID", draftAnnotationsClient, publishedAnnotationsClient, "publishEndpoint", "user:pass", "/__gtg", testingClient, logger.NewUPPLogger("test", "DEBUG"))
+	err = publisher.GTG()
 	assert.EqualError(t, err, "Get \"/__gtg\": unsupported protocol scheme \"\"")
 }
 
 func TestPublisherGTGInvalidURL(t *testing.T) {
 	draftAnnotationsClient := &mockAnnotationsClient{}
 	publishedAnnotationsClient := &mockAnnotationsClient{}
-	publisher := NewPublisher("originSystemID", draftAnnotationsClient, publishedAnnotationsClient, "publishEndpoint", "user:pass", ":#", testingClient)
-	err := publisher.GTG()
+	testingClient, err := fthttp.NewClient(
+		fthttp.WithSysInfo("PAC", "test-annotations-publisher"),
+	)
+	require.NoError(t, err)
+	publisher := NewPublisher("originSystemID", draftAnnotationsClient, publishedAnnotationsClient, "publishEndpoint", "user:pass", ":#", testingClient, logger.NewUPPLogger("test", "DEBUG"))
+	err = publisher.GTG()
 	assert.EqualError(t, err, "parse \":\": missing protocol scheme")
 }
 
@@ -252,9 +307,13 @@ func TestPublishFromStore(t *testing.T) {
 	server := startMockServer(ctx, t, uuid, true, true, time.Duration(0))
 	defer server.Close()
 
-	publisher := NewPublisher("originSystemID", draftAnnotationsClient, publishedAnnotationsClient, server.URL+"/notify", "user:pass", "http://www.example.com/__gtg", testingClient)
+	testingClient, err := fthttp.NewClient(
+		fthttp.WithSysInfo("PAC", "test-annotations-publisher"),
+	)
+	require.NoError(t, err)
+	publisher := NewPublisher("originSystemID", draftAnnotationsClient, publishedAnnotationsClient, server.URL+"/notify", "user:pass", "http://www.example.com/__gtg", testingClient, logger.NewUPPLogger("test", "DEBUG"))
 
-	err := publisher.PublishFromStore(ctx, uuid)
+	err = publisher.PublishFromStore(ctx, uuid)
 	assert.NoError(t, err)
 
 	draftAnnotationsClient.AssertExpectations(t)
@@ -267,11 +326,15 @@ func TestPublishFromStoreNotFound(t *testing.T) {
 	draftAnnotationsClient := &mockAnnotationsClient{}
 	draftAnnotationsClient.On("GetAnnotations", mock.Anything, uuid).Return(AnnotationsBody{}, "", ErrDraftNotFound)
 	publishedAnnotationsClient := &mockAnnotationsClient{}
-	publisher := NewPublisher("originSystemID", draftAnnotationsClient, publishedAnnotationsClient, "http://www.example.com/notify", "user:pass", "http://www.example.com/__gtg", testingClient)
+	testingClient, err := fthttp.NewClient(
+		fthttp.WithSysInfo("PAC", "test-annotations-publisher"),
+	)
+	require.NoError(t, err)
+	publisher := NewPublisher("originSystemID", draftAnnotationsClient, publishedAnnotationsClient, "http://www.example.com/notify", "user:pass", "http://www.example.com/__gtg", testingClient, logger.NewUPPLogger("test", "DEBUG"))
 
 	ctx, cancel := context.WithTimeout(tid.TransactionAwareContext(context.Background(), "tid_test"), 50*time.Millisecond)
 	defer cancel()
-	err := publisher.PublishFromStore(ctx, uuid)
+	err = publisher.PublishFromStore(ctx, uuid)
 	assert.EqualError(t, err, ErrDraftNotFound.Error())
 
 	draftAnnotationsClient.AssertExpectations(t)
@@ -284,11 +347,15 @@ func TestPublishFromStoreDraftAnnotationsGetTimeOut(t *testing.T) {
 	draftAnnotationsClient := &mockAnnotationsClient{}
 	draftAnnotationsClient.On("GetAnnotations", mock.Anything, uuid).Return(AnnotationsBody{}, "", testTimeoutError{errors.New("dealine exceeded")})
 	publishedAnnotationsClient := &mockAnnotationsClient{}
-	publisher := NewPublisher("originSystemID", draftAnnotationsClient, publishedAnnotationsClient, "http://www.example.com/notify", "user:pass", "http://www.example.com/__gtg", testingClient)
+	testingClient, err := fthttp.NewClient(
+		fthttp.WithSysInfo("PAC", "test-annotations-publisher"),
+	)
+	require.NoError(t, err)
+	publisher := NewPublisher("originSystemID", draftAnnotationsClient, publishedAnnotationsClient, "http://www.example.com/notify", "user:pass", "http://www.example.com/__gtg", testingClient, logger.NewUPPLogger("test", "DEBUG"))
 
 	ctx, cancel := context.WithTimeout(tid.TransactionAwareContext(context.Background(), "tid_test"), 50*time.Millisecond)
 	defer cancel()
-	err := publisher.PublishFromStore(ctx, uuid)
+	err = publisher.PublishFromStore(ctx, uuid)
 	assert.EqualError(t, err, ErrServiceTimeout.Error())
 
 	draftAnnotationsClient.AssertExpectations(t)
@@ -302,11 +369,15 @@ func TestPublishFromStoreGetDraftsFails(t *testing.T) {
 	draftAnnotationsClient := &mockAnnotationsClient{}
 	publishedAnnotationsClient := &mockAnnotationsClient{}
 	draftAnnotationsClient.On("GetAnnotations", mock.Anything, uuid).Return(AnnotationsBody{}, "", errors.New(msg))
-	publisher := NewPublisher("originSystemID", draftAnnotationsClient, publishedAnnotationsClient, "http://www.example.com/notify", "user:pass", "http://www.example.com/__gtg", testingClient)
+	testingClient, err := fthttp.NewClient(
+		fthttp.WithSysInfo("PAC", "test-annotations-publisher"),
+	)
+	require.NoError(t, err)
+	publisher := NewPublisher("originSystemID", draftAnnotationsClient, publishedAnnotationsClient, "http://www.example.com/notify", "user:pass", "http://www.example.com/__gtg", testingClient, logger.NewUPPLogger("test", "DEBUG"))
 
 	ctx, cancel := context.WithTimeout(tid.TransactionAwareContext(context.Background(), "tid_test"), 50*time.Millisecond)
 	defer cancel()
-	err := publisher.PublishFromStore(ctx, uuid)
+	err = publisher.PublishFromStore(ctx, uuid)
 	assert.EqualError(t, err, msg)
 
 	draftAnnotationsClient.AssertExpectations(t)
@@ -337,9 +408,13 @@ func TestPublishFromStoreSaveDraftFails(t *testing.T) {
 	server := startMockServer(ctx, t, uuid, true, true, time.Duration(0))
 	defer server.Close()
 
-	publisher := NewPublisher("originSystemID", draftAnnotationsClient, publishedAnnotationsClient, server.URL+"/notify", "user:pass", "http://www.example.com/__gtg", testingClient)
+	testingClient, err := fthttp.NewClient(
+		fthttp.WithSysInfo("PAC", "test-annotations-publisher"),
+	)
+	require.NoError(t, err)
+	publisher := NewPublisher("originSystemID", draftAnnotationsClient, publishedAnnotationsClient, server.URL+"/notify", "user:pass", "http://www.example.com/__gtg", testingClient, logger.NewUPPLogger("test", "DEBUG"))
 
-	err := publisher.PublishFromStore(ctx, uuid)
+	err = publisher.PublishFromStore(ctx, uuid)
 	assert.EqualError(t, err, msg)
 
 	draftAnnotationsClient.AssertExpectations(t)
@@ -369,9 +444,13 @@ func TestPublishFromStoreSaveDraftTimeout(t *testing.T) {
 	server := startMockServer(ctx, t, uuid, true, true, time.Duration(0))
 	defer server.Close()
 
-	publisher := NewPublisher("originSystemID", draftAnnotationsClient, publishedAnnotationsClient, server.URL+"/notify", "user:pass", "http://www.example.com/__gtg", testingClient)
+	testingClient, err := fthttp.NewClient(
+		fthttp.WithSysInfo("PAC", "test-annotations-publisher"),
+	)
+	require.NoError(t, err)
+	publisher := NewPublisher("originSystemID", draftAnnotationsClient, publishedAnnotationsClient, server.URL+"/notify", "user:pass", "http://www.example.com/__gtg", testingClient, logger.NewUPPLogger("test", "DEBUG"))
 
-	err := publisher.PublishFromStore(ctx, uuid)
+	err = publisher.PublishFromStore(ctx, uuid)
 	assert.EqualError(t, err, ErrServiceTimeout.Error())
 
 	draftAnnotationsClient.AssertExpectations(t)
@@ -403,9 +482,13 @@ func TestPublishFromStoreSavePublishedFails(t *testing.T) {
 	server := startMockServer(ctx, t, uuid, true, true, time.Duration(0))
 	defer server.Close()
 
-	publisher := NewPublisher("originSystemID", draftAnnotationsClient, publishedAnnotationsClient, server.URL+"/notify", "user:pass", "http://www.example.com/__gtg", testingClient)
+	testingClient, err := fthttp.NewClient(
+		fthttp.WithSysInfo("PAC", "test-annotations-publisher"),
+	)
+	require.NoError(t, err)
+	publisher := NewPublisher("originSystemID", draftAnnotationsClient, publishedAnnotationsClient, server.URL+"/notify", "user:pass", "http://www.example.com/__gtg", testingClient, logger.NewUPPLogger("test", "DEBUG"))
 
-	err := publisher.PublishFromStore(ctx, uuid)
+	err = publisher.PublishFromStore(ctx, uuid)
 	assert.EqualError(t, err, msg)
 
 	draftAnnotationsClient.AssertExpectations(t)
@@ -436,9 +519,13 @@ func TestPublishFromStoreSavePublishedTimeout(t *testing.T) {
 	server := startMockServer(ctx, t, uuid, true, true, time.Duration(0))
 	defer server.Close()
 
-	publisher := NewPublisher("originSystemID", draftAnnotationsClient, publishedAnnotationsClient, server.URL+"/notify", "user:pass", "http://www.example.com/__gtg", testingClient)
+	testingClient, err := fthttp.NewClient(
+		fthttp.WithSysInfo("PAC", "test-annotations-publisher"),
+	)
+	require.NoError(t, err)
+	publisher := NewPublisher("originSystemID", draftAnnotationsClient, publishedAnnotationsClient, server.URL+"/notify", "user:pass", "http://www.example.com/__gtg", testingClient, logger.NewUPPLogger("test", "DEBUG"))
 
-	err := publisher.PublishFromStore(ctx, uuid)
+	err = publisher.PublishFromStore(ctx, uuid)
 	assert.EqualError(t, err, ErrServiceTimeout.Error())
 
 	draftAnnotationsClient.AssertExpectations(t)
@@ -467,9 +554,13 @@ func TestPublishFromStorePublishFails(t *testing.T) {
 	server := startMockServer(ctx, t, uuid, false, true, time.Duration(0))
 	defer server.Close()
 
-	publisher := NewPublisher("originSystemID", draftAnnotationsClient, publishedAnnotationsClient, server.URL+"/notify", "user:pass", "http://www.example.com/__gtg", testingClient)
+	testingClient, err := fthttp.NewClient(
+		fthttp.WithSysInfo("PAC", "test-annotations-publisher"),
+	)
+	require.NoError(t, err)
+	publisher := NewPublisher("originSystemID", draftAnnotationsClient, publishedAnnotationsClient, server.URL+"/notify", "user:pass", "http://www.example.com/__gtg", testingClient, logger.NewUPPLogger("test", "DEBUG"))
 
-	err := publisher.PublishFromStore(ctx, uuid)
+	err = publisher.PublishFromStore(ctx, uuid)
 	assert.EqualError(t, err, fmt.Sprintf("publish to %v/notify returned a 503 status code", server.URL))
 
 	draftAnnotationsClient.AssertExpectations(t)
@@ -501,9 +592,13 @@ func TestSaveAndPublish(t *testing.T) {
 	server := startMockServer(ctx, t, uuid, true, true, time.Duration(0))
 	defer server.Close()
 
-	publisher := NewPublisher("originSystemID", draftAnnotationsClient, publishedAnnotationsClient, server.URL+"/notify", "user:pass", "http://www.example.com/__gtg", testingClient)
+	testingClient, err := fthttp.NewClient(
+		fthttp.WithSysInfo("PAC", "test-annotations-publisher"),
+	)
+	require.NoError(t, err)
+	publisher := NewPublisher("originSystemID", draftAnnotationsClient, publishedAnnotationsClient, server.URL+"/notify", "user:pass", "http://www.example.com/__gtg", testingClient, logger.NewUPPLogger("test", "DEBUG"))
 
-	err := publisher.SaveAndPublish(ctx, uuid, testHash, testAnnotations)
+	err = publisher.SaveAndPublish(ctx, uuid, testHash, testAnnotations)
 	assert.NoError(t, err)
 
 	draftAnnotationsClient.AssertExpectations(t)
@@ -524,11 +619,15 @@ func TestSaveAndPublishNotFound(t *testing.T) {
 	draftAnnotationsClient := &mockAnnotationsClient{}
 	draftAnnotationsClient.On("SaveAnnotations", mock.Anything, uuid, testHash, testAnnotations).Return(AnnotationsBody{}, "", ErrDraftNotFound)
 	publishedAnnotationsClient := &mockAnnotationsClient{}
-	publisher := NewPublisher("originSystemID", draftAnnotationsClient, publishedAnnotationsClient, "http://www.example.com/notify", "user:pass", "http://www.example.com/__gtg", testingClient)
+	testingClient, err := fthttp.NewClient(
+		fthttp.WithSysInfo("PAC", "test-annotations-publisher"),
+	)
+	require.NoError(t, err)
+	publisher := NewPublisher("originSystemID", draftAnnotationsClient, publishedAnnotationsClient, "http://www.example.com/notify", "user:pass", "http://www.example.com/__gtg", testingClient, logger.NewUPPLogger("test", "DEBUG"))
 
 	ctx, cancel := context.WithTimeout(tid.TransactionAwareContext(context.Background(), "tid_test"), 50*time.Millisecond)
 	defer cancel()
-	err := publisher.SaveAndPublish(ctx, uuid, testHash, testAnnotations)
+	err = publisher.SaveAndPublish(ctx, uuid, testHash, testAnnotations)
 	assert.EqualError(t, err, ErrDraftNotFound.Error())
 
 	draftAnnotationsClient.AssertExpectations(t)
@@ -549,11 +648,15 @@ func TestSaveAndPublishDraftSaveAnnotationsTimeout(t *testing.T) {
 	draftAnnotationsClient := &mockAnnotationsClient{}
 	draftAnnotationsClient.On("SaveAnnotations", mock.Anything, uuid, testHash, testAnnotations).Return(AnnotationsBody{}, "", testTimeoutError{errors.New("dealine exceeded")})
 	publishedAnnotationsClient := &mockAnnotationsClient{}
-	publisher := NewPublisher("originSystemID", draftAnnotationsClient, publishedAnnotationsClient, "http://www.example.com/notify", "user:pass", "http://www.example.com/__gtg", testingClient)
+	testingClient, err := fthttp.NewClient(
+		fthttp.WithSysInfo("PAC", "test-annotations-publisher"),
+	)
+	require.NoError(t, err)
+	publisher := NewPublisher("originSystemID", draftAnnotationsClient, publishedAnnotationsClient, "http://www.example.com/notify", "user:pass", "http://www.example.com/__gtg", testingClient, logger.NewUPPLogger("test", "DEBUG"))
 
 	ctx, cancel := context.WithTimeout(tid.TransactionAwareContext(context.Background(), "tid_test"), 50*time.Millisecond)
 	defer cancel()
-	err := publisher.SaveAndPublish(ctx, uuid, testHash, testAnnotations)
+	err = publisher.SaveAndPublish(ctx, uuid, testHash, testAnnotations)
 	assert.EqualError(t, err, ErrServiceTimeout.Error())
 
 	draftAnnotationsClient.AssertExpectations(t)

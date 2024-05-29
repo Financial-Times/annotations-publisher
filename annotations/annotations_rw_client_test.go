@@ -10,16 +10,14 @@ import (
 	"testing"
 
 	"github.com/Financial-Times/go-ft-http/fthttp"
+	"github.com/Financial-Times/go-logger/v2"
 	status "github.com/Financial-Times/service-status-go/httphandlers"
 	tid "github.com/Financial-Times/transactionid-utils-go"
 	"github.com/husobee/vestigo"
 	"github.com/pborman/uuid"
-	log "github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
-
-var testingClient = fthttp.NewClientWithDefaultTimeout("PAC", "test-annotations-publisher")
 
 const draftsURL = "/drafts/content/:uuid/annotations"
 
@@ -27,7 +25,12 @@ func TestAnnotationsRWGTG(t *testing.T) {
 	server := mockGtgServer(t, true)
 	defer server.Close()
 
-	client, err := NewAnnotationsClient(server.URL+"/%s", testingClient)
+	testingClient, err := fthttp.NewClient(
+		fthttp.WithSysInfo("PAC", "test-annotations-publisher"),
+	)
+	require.NoError(t, err)
+
+	client, err := NewAnnotationsClient(server.URL+"/%s", testingClient, logger.NewUPPLogger("test", "DEBUG"))
 	assert.NoError(t, err)
 
 	err = client.GTG()
@@ -38,7 +41,12 @@ func TestAnnotationsRWGTGFails(t *testing.T) {
 	server := mockGtgServer(t, false)
 	defer server.Close()
 
-	client, err := NewAnnotationsClient(server.URL+"/%s", testingClient)
+	testingClient, err := fthttp.NewClient(
+		fthttp.WithSysInfo("PAC", "test-annotations-publisher"),
+	)
+	require.NoError(t, err)
+
+	client, err := NewAnnotationsClient(server.URL+"/%s", testingClient, logger.NewUPPLogger("test", "DEBUG"))
 	require.NoError(t, err)
 
 	err = client.GTG()
@@ -46,7 +54,11 @@ func TestAnnotationsRWGTGFails(t *testing.T) {
 }
 
 func TestAnnotationsRWGTGInvalidURL(t *testing.T) {
-	client, err := NewAnnotationsClient(":#", testingClient)
+	testingClient, err := fthttp.NewClient(
+		fthttp.WithSysInfo("PAC", "test-annotations-publisher"),
+	)
+	require.NoError(t, err)
+	client, err := NewAnnotationsClient(":#", testingClient, logger.NewUPPLogger("test", "DEBUG"))
 	assert.Nil(t, client, "New PublishedAnnotationsWriter should not have returned a client")
 	assert.EqualError(t, err, "parse \":\": missing protocol scheme")
 }
@@ -117,7 +129,12 @@ func TestGetAnnotations(t *testing.T) {
 	server := httptest.NewServer(r)
 	defer server.Close()
 
-	client, err := NewAnnotationsClient(server.URL+"/drafts/content/%s/annotations", testingClient)
+	testingClient, err := fthttp.NewClient(
+		fthttp.WithSysInfo("PAC", "test-annotations-publisher"),
+	)
+	require.NoError(t, err)
+
+	client, err := NewAnnotationsClient(server.URL+"/drafts/content/%s/annotations", testingClient, logger.NewUPPLogger("test", "DEBUG"))
 	require.NoError(t, err)
 
 	actual, actualHash, err := client.GetAnnotations(testCtx, testUUID)
@@ -136,7 +153,12 @@ func TestGetAnnotationsNotFound(t *testing.T) {
 	server := httptest.NewServer(r)
 	defer server.Close()
 
-	client, err := NewAnnotationsClient(server.URL+"/drafts/content/%s/annotations", testingClient)
+	testingClient, err := fthttp.NewClient(
+		fthttp.WithSysInfo("PAC", "test-annotations-publisher"),
+	)
+	require.NoError(t, err)
+
+	client, err := NewAnnotationsClient(server.URL+"/drafts/content/%s/annotations", testingClient, logger.NewUPPLogger("test", "DEBUG"))
 	require.NoError(t, err)
 
 	_, _, err = client.GetAnnotations(testCtx, uuid.New())
@@ -153,7 +175,12 @@ func TestGetAnnotationsFailure(t *testing.T) {
 	server := httptest.NewServer(r)
 	defer server.Close()
 
-	client, err := NewAnnotationsClient(server.URL+"/drafts/content/%s/annotations", testingClient)
+	testingClient, err := fthttp.NewClient(
+		fthttp.WithSysInfo("PAC", "test-annotations-publisher"),
+	)
+	require.NoError(t, err)
+
+	client, err := NewAnnotationsClient(server.URL+"/drafts/content/%s/annotations", testingClient, logger.NewUPPLogger("test", "DEBUG"))
 	require.NoError(t, err)
 
 	_, _, err = client.GetAnnotations(testCtx, uuid.New())
@@ -173,7 +200,6 @@ func mockSaveAnnotations(t *testing.T, expectedTid string, expectedUUID string, 
 		var body AnnotationsBody
 		err := json.NewDecoder(r.Body).Decode(&body)
 		if err != nil {
-			log.Error(err)
 			w.WriteHeader(http.StatusBadRequest)
 			msg := map[string]string{"message": "failed to deserialize body: " + err.Error()}
 			json.NewEncoder(w).Encode(&msg)
@@ -219,7 +245,12 @@ func TestSaveAnnotations(t *testing.T) {
 	server := httptest.NewServer(r)
 	defer server.Close()
 
-	client, err := NewAnnotationsClient(server.URL+"/drafts/content/%s/annotations", testingClient)
+	testingClient, err := fthttp.NewClient(
+		fthttp.WithSysInfo("PAC", "test-annotations-publisher"),
+	)
+	require.NoError(t, err)
+
+	client, err := NewAnnotationsClient(server.URL+"/drafts/content/%s/annotations", testingClient, logger.NewUPPLogger("test", "DEBUG"))
 	require.NoError(t, err)
 
 	actual, actualHash, err := client.SaveAnnotations(testCtx, testUUID, previousHash, testAnnotations)
@@ -249,7 +280,12 @@ func TestSaveAnnotationsCreatedStatus(t *testing.T) {
 	server := httptest.NewServer(r)
 	defer server.Close()
 
-	client, err := NewAnnotationsClient(server.URL+"/drafts/content/%s/annotations", testingClient)
+	testingClient, err := fthttp.NewClient(
+		fthttp.WithSysInfo("PAC", "test-annotations-publisher"),
+	)
+	require.NoError(t, err)
+
+	client, err := NewAnnotationsClient(server.URL+"/drafts/content/%s/annotations", testingClient, logger.NewUPPLogger("test", "DEBUG"))
 	require.NoError(t, err)
 
 	actual, actualHash, err := client.SaveAnnotations(testCtx, testUUID, previousHash, testAnnotations)
@@ -276,8 +312,13 @@ func TestSaveAnnotationsError(t *testing.T) {
 	server := httptest.NewServer(r)
 	defer server.Close()
 
+	testingClient, err := fthttp.NewClient(
+		fthttp.WithSysInfo("PAC", "test-annotations-publisher"),
+	)
+	require.NoError(t, err)
+
 	annotationsURL := server.URL + "/drafts/content/%s/annotations"
-	client, err := NewAnnotationsClient(annotationsURL, testingClient)
+	client, err := NewAnnotationsClient(annotationsURL, testingClient, logger.NewUPPLogger("test", "DEBUG"))
 	require.NoError(t, err)
 
 	_, _, err = client.SaveAnnotations(testCtx, testUUID, "", testAnnotations)
@@ -303,7 +344,12 @@ func TestSaveAnnotationsWriterReturnsNoBody(t *testing.T) {
 	server := httptest.NewServer(r)
 	defer server.Close()
 
-	client, err := NewAnnotationsClient(server.URL+"/drafts/content/%s/annotations", testingClient)
+	testingClient, err := fthttp.NewClient(
+		fthttp.WithSysInfo("PAC", "test-annotations-publisher"),
+	)
+	require.NoError(t, err)
+
+	client, err := NewAnnotationsClient(server.URL+"/drafts/content/%s/annotations", testingClient, logger.NewUPPLogger("test", "DEBUG"))
 	require.NoError(t, err)
 
 	actual, _, err := client.SaveAnnotations(testCtx, testUUID, "", testAnnotations)

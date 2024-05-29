@@ -11,8 +11,8 @@ import (
 	"strings"
 
 	"github.com/Financial-Times/annotations-publisher/health"
+	"github.com/Financial-Times/go-logger/v2"
 	tid "github.com/Financial-Times/transactionid-utils-go"
-	log "github.com/sirupsen/logrus"
 )
 
 var (
@@ -38,21 +38,22 @@ type uppPublisher struct {
 	publishEndpoint            string
 	publishAuth                string
 	gtgEndpoint                string
+	log                        *logger.UPPLogger
 }
 
 // NewPublisher returns a new Publisher instance
-func NewPublisher(originSystemID string, draftAnnotationsClient AnnotationsClient, publishedAnnotationsClient AnnotationsClient, publishEndpoint string, publishAuth string, gtgEndpoint string, client *http.Client) Publisher {
+func NewPublisher(originSystemID string, draftAnnotationsClient AnnotationsClient, publishedAnnotationsClient AnnotationsClient, publishEndpoint string, publishAuth string, gtgEndpoint string, client *http.Client, log *logger.UPPLogger) Publisher {
 	log.WithField("endpoint", draftAnnotationsClient.Endpoint()).Info("draft annotations r/w endpoint")
 	log.WithField("endpoint", publishedAnnotationsClient.Endpoint()).Info("published annotations r/w endpoint")
 	log.WithField("endpoint", publishEndpoint).Info("publish endpoint")
 
-	return &uppPublisher{client: client, originSystemID: originSystemID, draftAnnotationsClient: draftAnnotationsClient, publishedAnnotationsClient: publishedAnnotationsClient, publishEndpoint: publishEndpoint, publishAuth: publishAuth, gtgEndpoint: gtgEndpoint}
+	return &uppPublisher{client: client, originSystemID: originSystemID, draftAnnotationsClient: draftAnnotationsClient, publishedAnnotationsClient: publishedAnnotationsClient, publishEndpoint: publishEndpoint, publishAuth: publishAuth, gtgEndpoint: gtgEndpoint, log: log}
 }
 
 // Publish sends the annotations to UPP via the configured publishEndpoint. Requests contain X-Origin-System-Id and X-Request-Id and a User-Agent as provided.
 func (a *uppPublisher) Publish(ctx context.Context, uuid string, body map[string]interface{}) error {
 	txid, _ := tid.GetTransactionIDFromContext(ctx)
-	mlog := log.WithField("transaction_id", txid)
+	mlog := a.log.WithField("transaction_id", txid)
 
 	body["uuid"] = uuid
 	bodyJSON, err := json.Marshal(body)
@@ -108,7 +109,7 @@ func (a *uppPublisher) addBasicAuth(r *http.Request) error {
 func (a *uppPublisher) GTG() error {
 	req, err := http.NewRequest("GET", a.gtgEndpoint, nil)
 	if err != nil {
-		log.WithError(err).WithField("healthEndpoint", a.gtgEndpoint).Error("Error in creating GTG request for UPP cms-metadata-notifier service")
+		a.log.WithError(err).WithField("healthEndpoint", a.gtgEndpoint).Error("Error in creating GTG request for UPP cms-metadata-notifier service")
 		return err
 	}
 
@@ -119,14 +120,14 @@ func (a *uppPublisher) GTG() error {
 
 	resp, err := a.client.Do(req)
 	if err != nil {
-		log.WithError(err).WithField("healthEndpoint", a.gtgEndpoint).Error("Error in GTG request for UPP cms-metadata-notifier service")
+		a.log.WithError(err).WithField("healthEndpoint", a.gtgEndpoint).Error("Error in GTG request for UPP cms-metadata-notifier service")
 		return err
 	}
 
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		log.WithField("healthEndpoint", a.gtgEndpoint).
+		a.log.WithField("healthEndpoint", a.gtgEndpoint).
 			WithField("status", resp.StatusCode).
 			Error("GTG for UPP cms-metadata-notifier service returned a non-200 HTTP status")
 		return fmt.Errorf("GTG %v returned a %v status code for UPP cms-metadata-notifier service", a.gtgEndpoint, resp.StatusCode)
@@ -142,7 +143,7 @@ func (a *uppPublisher) Endpoint() string {
 
 func (a *uppPublisher) PublishFromStore(ctx context.Context, uuid string) error {
 	txid, _ := tid.GetTransactionIDFromContext(ctx)
-	mlog := log.WithField("transaction_id", txid)
+	mlog := a.log.WithField("transaction_id", txid)
 
 	var draft AnnotationsBody
 	var hash string
@@ -182,7 +183,7 @@ func (a *uppPublisher) PublishFromStore(ctx context.Context, uuid string) error 
 
 func (a *uppPublisher) SaveAndPublish(ctx context.Context, uuid string, hash string, body AnnotationsBody) error {
 	txid, _ := tid.GetTransactionIDFromContext(ctx)
-	mlog := log.WithField("transaction_id", txid)
+	mlog := a.log.WithField("transaction_id", txid)
 	_, _, err := a.draftAnnotationsClient.SaveAnnotations(ctx, uuid, hash, body)
 
 	if err != nil {

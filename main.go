@@ -10,12 +10,12 @@ import (
 	"github.com/Financial-Times/annotations-publisher/resources"
 	"github.com/Financial-Times/api-endpoint"
 	"github.com/Financial-Times/go-ft-http/fthttp"
+	"github.com/Financial-Times/go-logger/v2"
 	"github.com/Financial-Times/http-handlers-go/httphandlers"
 	status "github.com/Financial-Times/service-status-go/httphandlers"
 	"github.com/husobee/vestigo"
 	cli "github.com/jawher/mow.cli"
 	"github.com/rcrowley/go-metrics"
-	log "github.com/sirupsen/logrus"
 )
 
 const appDescription = "PAC Annotations Publisher"
@@ -97,9 +97,7 @@ func main() {
 		EnvVar: "HTTP_CLIENT_TIMEOUT",
 	})
 
-	log.SetFormatter(&log.JSONFormatter{})
-	log.SetLevel(log.InfoLevel)
-	log.Infof("[Startup] %v is starting", *appSystemCode)
+	log := logger.NewUPPInfoLogger(*appName)
 
 	app.Action = func() {
 		log.Infof("System code: %s, App Name: %s, Port: %s", *appSystemCode, *appName, *port)
@@ -108,22 +106,28 @@ func main() {
 			log.WithError(err).Fatal("Provided http timeout is not in the standard duration format.")
 		}
 
-		httpClient := fthttp.NewClient(timeout, "PAC", *appSystemCode)
+		httpClient, err := fthttp.NewClient(
+			fthttp.WithSysInfo("PAC", *appSystemCode),
+			fthttp.WithTimeout(timeout),
+		)
+		if err != nil {
+			log.WithError(err).Fatal("Failed to create new http client.")
+		}
 
-		draftAnnotationsRW, err := annotations.NewAnnotationsClient(*draftsEndpoint, httpClient)
+		draftAnnotationsRW, err := annotations.NewAnnotationsClient(*draftsEndpoint, httpClient, log)
 		if err != nil {
 			log.WithError(err).Fatal("Failed to create new draft annotations writer.")
 		}
 
-		publishedAnnotationsRW, err := annotations.NewAnnotationsClient(*writerEndpoint, httpClient)
+		publishedAnnotationsRW, err := annotations.NewAnnotationsClient(*writerEndpoint, httpClient, log)
 		if err != nil {
 			log.WithError(err).Fatal("Failed to create new published annotations writer.")
 		}
 
-		publisher := annotations.NewPublisher(*originSystemID, draftAnnotationsRW, publishedAnnotationsRW, *annotationsEndpoint, *annotationsAuth, *annotationsGTGEndpoint, httpClient)
+		publisher := annotations.NewPublisher(*originSystemID, draftAnnotationsRW, publishedAnnotationsRW, *annotationsEndpoint, *annotationsAuth, *annotationsGTGEndpoint, httpClient, log)
 		healthService := health.NewHealthService(*appSystemCode, *appName, appDescription, publisher, publishedAnnotationsRW, draftAnnotationsRW)
 
-		serveEndpoints(*port, apiYml, publisher, healthService, timeout)
+		serveEndpoints(*port, apiYml, publisher, healthService, timeout, log)
 	}
 
 	err := app.Run(os.Args)
@@ -133,12 +137,12 @@ func main() {
 	}
 }
 
-func serveEndpoints(port string, apiYml *string, publisher annotations.Publisher, healthService *health.HealthService, timeout time.Duration) {
+func serveEndpoints(port string, apiYml *string, publisher annotations.Publisher, healthService *health.HealthService, timeout time.Duration, log *logger.UPPLogger) {
 	r := vestigo.NewRouter()
-	r.Post("/drafts/content/:uuid/annotations/publish", resources.Publish(publisher, timeout))
+	r.Post("/drafts/content/:uuid/annotations/publish", resources.Publish(publisher, timeout, log))
 
 	var monitoringRouter http.Handler = r
-	monitoringRouter = httphandlers.TransactionAwareRequestLoggingHandler(log.StandardLogger(), monitoringRouter)
+	monitoringRouter = httphandlers.TransactionAwareRequestLoggingHandler(log, monitoringRouter)
 	monitoringRouter = httphandlers.HTTPMetricsHandler(metrics.DefaultRegistry, monitoringRouter)
 
 	r.Get("/__health", healthService.HealthCheckHandleFunc())
