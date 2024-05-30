@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/Financial-Times/annotations-publisher/annotations"
+	"github.com/Financial-Times/go-logger/v2"
 	"github.com/husobee/vestigo"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
@@ -43,7 +44,7 @@ func TestPublish(t *testing.T) {
 	pub := &mockPublisher{}
 	pub.On("SaveAndPublish", mock.AnythingOfType("*context.timerCtx"), "a-valid-uuid", "hash", mock.Anything).Return(nil)
 
-	r.Post("/drafts/content/:uuid/annotations/publish", Publish(pub, timeout))
+	r.Post("/drafts/content/:uuid/annotations/publish", Publish(pub, timeout, logger.NewUPPLogger("test", "DEBUG")))
 
 	w := httptest.NewRecorder()
 	req := httptest.NewRequest("POST", "/drafts/content/a-valid-uuid/annotations/publish", strings.NewReader(testPublishBody))
@@ -60,7 +61,7 @@ func TestBodyNotJSON(t *testing.T) {
 	r := vestigo.NewRouter()
 	pub := &mockPublisher{}
 
-	r.Post("/drafts/content/:uuid/annotations/publish", Publish(pub, timeout))
+	r.Post("/drafts/content/:uuid/annotations/publish", Publish(pub, timeout, logger.NewUPPLogger("test", "DEBUG")))
 
 	w := httptest.NewRecorder()
 	req := httptest.NewRequest("POST", "/drafts/content/a-valid-uuid/annotations/publish", strings.NewReader(`{\`))
@@ -80,7 +81,7 @@ func TestPublishNotFound(t *testing.T) {
 	pub := &mockPublisher{}
 	pub.On("SaveAndPublish", mock.AnythingOfType("*context.timerCtx"), "a-valid-uuid", "hash", mock.Anything).Return(annotations.ErrDraftNotFound)
 
-	r.Post("/drafts/content/:uuid/annotations/publish", Publish(pub, timeout))
+	r.Post("/drafts/content/:uuid/annotations/publish", Publish(pub, timeout, logger.NewUPPLogger("test", "DEBUG")))
 
 	w := httptest.NewRecorder()
 	req := httptest.NewRequest("POST", "/drafts/content/a-valid-uuid/annotations/publish", strings.NewReader(testPublishBody))
@@ -101,7 +102,7 @@ func TestPublishTimedout(t *testing.T) {
 	pub := &mockPublisher{}
 	pub.On("SaveAndPublish", mock.AnythingOfType("*context.timerCtx"), "a-valid-uuid", "hash", mock.Anything).Return(annotations.ErrServiceTimeout)
 
-	r.Post("/drafts/content/:uuid/annotations/publish", Publish(pub, timeout))
+	r.Post("/drafts/content/:uuid/annotations/publish", Publish(pub, timeout, logger.NewUPPLogger("test", "DEBUG")))
 
 	w := httptest.NewRecorder()
 	req := httptest.NewRequest("POST", "/drafts/content/a-valid-uuid/annotations/publish", strings.NewReader(testPublishBody))
@@ -121,7 +122,7 @@ func TestPublishMissingBody(t *testing.T) {
 	r := vestigo.NewRouter()
 	pub := &mockPublisher{}
 
-	r.Post("/drafts/content/:uuid/annotations/publish", Publish(pub, timeout))
+	r.Post("/drafts/content/:uuid/annotations/publish", Publish(pub, timeout, logger.NewUPPLogger("test", "DEBUG")))
 
 	w := httptest.NewRecorder()
 	req := httptest.NewRequest("POST", "/drafts/content/a-valid-uuid/annotations/publish", nil)
@@ -145,7 +146,7 @@ func TestPublishBodyReadFail(t *testing.T) {
 	r := vestigo.NewRouter()
 	pub := &mockPublisher{}
 
-	r.Post("/drafts/content/:uuid/annotations/publish", Publish(pub, timeout))
+	r.Post("/drafts/content/:uuid/annotations/publish", Publish(pub, timeout, logger.NewUPPLogger("test", "DEBUG")))
 
 	w := httptest.NewRecorder()
 	req := httptest.NewRequest("POST", "/drafts/content/a-valid-uuid/annotations/publish", &failingReader{err: errors.New("failed to read request body. Please provide a valid json request body")})
@@ -167,7 +168,7 @@ func TestPublishNoHashHeader(t *testing.T) {
 	pub := &mockPublisher{}
 	pub.On("SaveAndPublish", mock.AnythingOfType("*context.timerCtx"), "a-valid-uuid", "", mock.Anything).Return(nil)
 
-	r.Post("/drafts/content/:uuid/annotations/publish", Publish(pub, timeout))
+	r.Post("/drafts/content/:uuid/annotations/publish", Publish(pub, timeout, logger.NewUPPLogger("test", "DEBUG")))
 
 	w := httptest.NewRecorder()
 	req := httptest.NewRequest("POST", "/drafts/content/a-valid-uuid/annotations/publish", strings.NewReader(testPublishBody))
@@ -183,7 +184,7 @@ func TestRequestHasNoUUID(t *testing.T) {
 	r := vestigo.NewRouter()
 	pub := &mockPublisher{}
 
-	r.Post("/drafts/content/:uuid/annotations/publish", Publish(pub, timeout))
+	r.Post("/drafts/content/:uuid/annotations/publish", Publish(pub, timeout, logger.NewUPPLogger("test", "DEBUG")))
 
 	w := httptest.NewRecorder()
 	req := httptest.NewRequest("POST", "/drafts/content//annotations/publish", strings.NewReader(`{}`))
@@ -203,7 +204,7 @@ func TestPublishFailed(t *testing.T) {
 	pub := &mockPublisher{}
 	pub.On("SaveAndPublish", mock.AnythingOfType("*context.timerCtx"), "a-valid-uuid", "hash", mock.Anything).Return(errors.New("eek"))
 
-	r.Post("/drafts/content/:uuid/annotations/publish", Publish(pub, timeout))
+	r.Post("/drafts/content/:uuid/annotations/publish", Publish(pub, timeout, logger.NewUPPLogger("test", "DEBUG")))
 
 	w := httptest.NewRecorder()
 	req := httptest.NewRequest("POST", "/drafts/content/a-valid-uuid/annotations/publish", strings.NewReader(testPublishBody))
@@ -224,7 +225,7 @@ func TestPublishAuthenticationInvalid(t *testing.T) {
 	pub := &mockPublisher{}
 	pub.On("SaveAndPublish", mock.AnythingOfType("*context.timerCtx"), "a-valid-uuid", "hash", mock.Anything).Return(annotations.ErrInvalidAuthentication)
 
-	r.Post("/drafts/content/:uuid/annotations/publish", Publish(pub, timeout))
+	r.Post("/drafts/content/:uuid/annotations/publish", Publish(pub, timeout, logger.NewUPPLogger("test", "DEBUG")))
 
 	w := httptest.NewRecorder()
 	req := httptest.NewRequest("POST", "/drafts/content/a-valid-uuid/annotations/publish", strings.NewReader(testPublishBody))
@@ -244,7 +245,7 @@ func TestPublishFromStore(t *testing.T) {
 	r := vestigo.NewRouter()
 	pub := &mockPublisher{}
 	pub.On("PublishFromStore", mock.AnythingOfType("*context.timerCtx"), "a-valid-uuid").Return(nil)
-	r.Post("/drafts/content/:uuid/annotations/publish", Publish(pub, timeout))
+	r.Post("/drafts/content/:uuid/annotations/publish", Publish(pub, timeout, logger.NewUPPLogger("test", "DEBUG")))
 
 	w := httptest.NewRecorder()
 	req := httptest.NewRequest("POST", "/drafts/content/a-valid-uuid/annotations/publish?fromStore=true", nil)
@@ -263,7 +264,7 @@ func TestPublishFromStoreNotFound(t *testing.T) {
 	r := vestigo.NewRouter()
 	pub := &mockPublisher{}
 	pub.On("PublishFromStore", mock.AnythingOfType("*context.timerCtx"), "a-valid-uuid").Return(annotations.ErrDraftNotFound)
-	r.Post("/drafts/content/:uuid/annotations/publish", Publish(pub, timeout))
+	r.Post("/drafts/content/:uuid/annotations/publish", Publish(pub, timeout, logger.NewUPPLogger("test", "DEBUG")))
 
 	w := httptest.NewRecorder()
 	req := httptest.NewRequest("POST", "/drafts/content/a-valid-uuid/annotations/publish?fromStore=true", nil)
@@ -282,7 +283,7 @@ func TestPublishFromStoreTimeout(t *testing.T) {
 	r := vestigo.NewRouter()
 	pub := &mockPublisher{}
 	pub.On("PublishFromStore", mock.AnythingOfType("*context.timerCtx"), "a-valid-uuid").Return(annotations.ErrServiceTimeout)
-	r.Post("/drafts/content/:uuid/annotations/publish", Publish(pub, timeout))
+	r.Post("/drafts/content/:uuid/annotations/publish", Publish(pub, timeout, logger.NewUPPLogger("test", "DEBUG")))
 
 	w := httptest.NewRecorder()
 	req := httptest.NewRequest("POST", "/drafts/content/a-valid-uuid/annotations/publish?fromStore=true", nil)
@@ -301,7 +302,7 @@ func TestPublishFromStoreTrueWithBody(t *testing.T) {
 	r := vestigo.NewRouter()
 	pub := &mockPublisher{}
 
-	r.Post("/drafts/content/:uuid/annotations/publish", Publish(pub, timeout))
+	r.Post("/drafts/content/:uuid/annotations/publish", Publish(pub, timeout, logger.NewUPPLogger("test", "DEBUG")))
 
 	w := httptest.NewRecorder()
 	req := httptest.NewRequest("POST", "/drafts/content/a-valid-uuid/annotations/publish?fromStore=true", strings.NewReader(testPublishBody))
@@ -321,7 +322,7 @@ func TestPublishFromStoreFails(t *testing.T) {
 	r := vestigo.NewRouter()
 	pub := &mockPublisher{}
 	pub.On("PublishFromStore", mock.AnythingOfType("*context.timerCtx"), "a-valid-uuid").Return(errors.New("test error"))
-	r.Post("/drafts/content/:uuid/annotations/publish", Publish(pub, timeout))
+	r.Post("/drafts/content/:uuid/annotations/publish", Publish(pub, timeout, logger.NewUPPLogger("test", "DEBUG")))
 
 	w := httptest.NewRecorder()
 	req := httptest.NewRequest("POST", "/drafts/content/a-valid-uuid/annotations/publish?fromStore=true", nil)
@@ -375,7 +376,7 @@ func (m *mockPublisher) GetDraft(ctx context.Context, uuid string) (interface{},
 	return args.Get(0), args.Error(1)
 }
 
-func (m *mockPublisher) SaveDraft(ctx context.Context, uuid string, data interface{}) (interface{}, error) {
+func (m *mockPublisher) SaveDraft(ctx context.Context, uuid string, _ interface{}) (interface{}, error) {
 	args := m.Called(ctx, uuid)
 	return args.Get(0), args.Error(1)
 }

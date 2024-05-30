@@ -10,16 +10,16 @@ import (
 	"time"
 
 	"github.com/Financial-Times/annotations-publisher/annotations"
+	"github.com/Financial-Times/go-logger/v2"
 	tid "github.com/Financial-Times/transactionid-utils-go"
 	"github.com/husobee/vestigo"
-	log "github.com/sirupsen/logrus"
 )
 
 // Publish provides functionality to publish PAC annotations to UPP
-func Publish(publisher annotations.Publisher, httpTimeOut time.Duration) func(w http.ResponseWriter, r *http.Request) {
+func Publish(publisher annotations.Publisher, httpTimeOut time.Duration, log *logger.UPPLogger) func(w http.ResponseWriter, r *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
 		txid := tid.GetTransactionIDFromRequest(r)
-		mlog := log.WithField(tid.TransactionIDKey, txid)
+		mlog := log.WithField(tid.TransactionIDHeader, txid)
 		ctx, cancel := context.WithTimeout(tid.TransactionAwareContext(context.Background(), txid), httpTimeOut)
 		defer cancel()
 
@@ -31,7 +31,7 @@ func Publish(publisher annotations.Publisher, httpTimeOut time.Duration) func(w 
 
 		fromStore, _ := strconv.ParseBool(r.URL.Query().Get("fromStore"))
 		hash := r.Header.Get(annotations.PreviousDocumentHashHeader)
-		log.WithFields(log.Fields{"transaction_id": txid, "uuid": uuid, "fromStore": fromStore}).Info("publish")
+		log.WithFields(map[string]interface{}{"transaction_id": txid, "uuid": uuid, "fromStore": fromStore}).Info("publish")
 
 		var body annotations.AnnotationsBody
 
@@ -51,7 +51,7 @@ func Publish(publisher annotations.Publisher, httpTimeOut time.Duration) func(w 
 			return
 		}
 		if fromStore {
-			publishFromStore(ctx, publisher, uuid, w)
+			publishFromStore(ctx, publisher, uuid, w, log)
 			return
 		}
 		err = json.Unmarshal(bodyBytes, &body)
@@ -60,13 +60,13 @@ func Publish(publisher annotations.Publisher, httpTimeOut time.Duration) func(w 
 			writeMsg(w, http.StatusBadRequest, "Failed to process request json. Please provide a valid json request body")
 			return
 		}
-		saveAndPublish(ctx, publisher, uuid, hash, w, body)
+		saveAndPublish(ctx, publisher, uuid, hash, w, body, log)
 	}
 }
 
-func saveAndPublish(ctx context.Context, publisher annotations.Publisher, uuid string, hash string, w http.ResponseWriter, body annotations.AnnotationsBody) {
+func saveAndPublish(ctx context.Context, publisher annotations.Publisher, uuid string, hash string, w http.ResponseWriter, body annotations.AnnotationsBody, log *logger.UPPLogger) {
 	txid, _ := tid.GetTransactionIDFromContext(ctx)
-	mlog := log.WithField(tid.TransactionIDKey, txid)
+	mlog := log.WithField(tid.TransactionIDHeader, txid)
 
 	err := publisher.SaveAndPublish(ctx, uuid, hash, body)
 	if err == annotations.ErrServiceTimeout {
@@ -89,9 +89,9 @@ func saveAndPublish(ctx context.Context, publisher annotations.Publisher, uuid s
 	writeMsg(w, http.StatusAccepted, "Publish accepted")
 }
 
-func publishFromStore(ctx context.Context, publisher annotations.Publisher, uuid string, w http.ResponseWriter) {
+func publishFromStore(ctx context.Context, publisher annotations.Publisher, uuid string, w http.ResponseWriter, log *logger.UPPLogger) {
 	txid, _ := tid.GetTransactionIDFromContext(ctx)
-	mlog := log.WithField(tid.TransactionIDKey, txid)
+	mlog := log.WithField(tid.TransactionIDHeader, txid)
 
 	err := publisher.PublishFromStore(ctx, uuid)
 	if err == nil {
